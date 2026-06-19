@@ -21,6 +21,7 @@ import NotificationsModule from './pages/notifications/index';
 import ComplianceModule   from './pages/compliance/index';
 import PartnersModule     from './pages/partners/index';
 import PartnerAppShell    from './pages/partners/PartnerAppShell';
+import { isSupabaseConfigured } from './lib/supabaseClient';
 
 function ComingSoon({ page }) {
   return (
@@ -113,6 +114,11 @@ function AppShell() {
           activePage={activePage}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
+        {!isSupabaseConfigured && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-800">
+            Demo mode — Supabase not configured. Creates will not save. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY (Vercel: Project Settings → Environment Variables), then redeploy.
+          </div>
+        )}
         <main className="flex-1 overflow-auto">{renderPage()}</main>
       </div>
     </div>

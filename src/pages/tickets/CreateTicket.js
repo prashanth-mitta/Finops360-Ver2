@@ -40,7 +40,8 @@ export default function CreateTicket({ onBack, onSuccess }) {
   };
   const removeItem = (id) => setChecklist(prev => prev.filter(c => c.id !== id));
 
-  const associates = team.filter((u) => String(u.role).toLowerCase() === 'associate');
+  const associates = team.filter((u) => /associate/i.test(String(u.role)));
+  const assignees = associates.length ? associates : team;
   const clients = allClients;
 
   const validate = () => {
@@ -48,7 +49,8 @@ export default function CreateTicket({ onBack, onSuccess }) {
     if (!form.clientId) e.clientId = 'Select a client';
     if (!form.type) e.type = 'Select a task type';
     if (!form.dueDate) e.dueDate = 'Due date is required';
-    if (!form.assignedTo) e.assignedTo = 'Assign to an associate';
+    if (!form.assignedTo) e.assignedTo = assignees.length ? 'Assign to a team member' : 'No team members found — run seed.sql in Supabase';
+    if (!clients.length) e.clientId = 'No clients found — onboard a client first or run seed.sql';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -56,7 +58,7 @@ export default function CreateTicket({ onBack, onSuccess }) {
   const handleSubmit = async () => {
     if (!validate()) return;
     const client = clients.find((c) => c.id === form.clientId);
-    const assignee = associates.find((u) => u.id === form.assignedTo);
+    const assignee = assignees.find((u) => u.id === form.assignedTo);
     setSaveError('');
     setSaving(true);
     try {
@@ -221,14 +223,17 @@ export default function CreateTicket({ onBack, onSuccess }) {
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Assignment</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign to associate <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign to <span className="text-red-500">*</span></label>
                 <select className={`input-field ${errors.assignedTo ? 'border-red-300' : ''}`} value={form.assignedTo} onChange={e => set('assignedTo', e.target.value)}>
-                  <option value="">Select associate</option>
-                  {associates.map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                  <option value="">Select team member</option>
+                  {assignees.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                   ))}
                 </select>
                 {errors.assignedTo && <p className="text-red-500 text-xs mt-1">{errors.assignedTo}</p>}
+                {!assignees.length && (
+                  <p className="text-amber-600 text-xs mt-1">No associates in database. Run supabase/migrations/seed.sql in the Supabase SQL Editor.</p>
+                )}
               </div>
 
               <div>

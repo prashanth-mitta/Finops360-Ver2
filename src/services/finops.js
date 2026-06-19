@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { queryClient } from '../lib/queryClient';
+import { useAuth } from '../context/AuthContext';
 
 // ── Fallback mock data (used only when Supabase is not configured) ───────────
 import { CLIENTS, TICKETS, TEAM, NOTIFICATIONS } from '../data/mockData';
@@ -94,20 +95,27 @@ async function load(fallback, queryFn) {
   const { data, error } = await queryFn();
   if (error) {
     // eslint-disable-next-line no-console
-    console.error('[FinOps360] query failed, using fallback:', error.message);
-    return fallback;
+    console.error('[FinOps360] query failed:', error.message);
+    throw new Error(error.message);
   }
-  return data;
+  return data ?? fallback;
 }
 
 function useData(key, fallback, queryFn) {
+  const { currentUser } = useAuth();
+  const live = isSupabaseConfigured && Boolean(currentUser);
+
   const { data } = useQuery({
-    queryKey: key,
+    queryKey: [...key, currentUser?.tenantId],
     queryFn: () => load(fallback, queryFn),
-    initialData: fallback,
-    enabled: true,
+    enabled: live || !isSupabaseConfigured,
+    // Never seed live queries with mock rows — that made creates look broken.
+    initialData: isSupabaseConfigured ? undefined : fallback,
+    refetchOnMount: true,
   });
-  return data ?? fallback;
+
+  if (!isSupabaseConfigured) return fallback;
+  return data ?? [];
 }
 
 // ── Read hooks ───────────────────────────────────────────────────────────────
@@ -218,8 +226,10 @@ export function useHeaderNotifications() {
   });
 }
 
-function invalidate(...keys) {
-  keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+async function refetchKeys(...keys) {
+  await Promise.all(
+    keys.map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+  );
 }
 
 async function nextTicketCode(tenantId) {
@@ -237,6 +247,8 @@ async function nextTicketCode(tenantId) {
 
 // ── Write helpers (best-effort; safe no-ops when Supabase is not configured) ──
 export async function createClient(tenantId, payload, services = []) {
+  if (!tenantId) throw new Error('Missing tenant. Log out and sign in again.');
+
   const row = {
     tenant_id: tenantId,
     name: payload.name,
@@ -256,11 +268,11 @@ export async function createClient(tenantId, payload, services = []) {
   };
 
   if (!isSupabaseConfigured) {
-    invalidate('clients');
+    await refetchKeys('clients');
     return { id: `c${Date.now()}`, ...row };
   }
 
-  const { data, error } = await supabase.from('clients').insert(row).select('id').single();
+  const { data, error } = await supabase.from('clients').insert(row).select('*').single();
   if (error) throw new Error(error.message);
 
   if (services.length) {
@@ -270,17 +282,21 @@ export async function createClient(tenantId, payload, services = []) {
     if (svcErr) throw new Error(svcErr.message);
   }
 
-  invalidate('clients');
+  const mapped = mapClient(data);
+  queryClient.setQueryData(['clients', tenantId], (old) => [...(old || []), mapped]);
+  await refetchKeys('clients');
   return data;
 }
 
 export async function createTicket(tenantId, payload) {
+  if (!tenantId) throw new Error('Missing tenant. Log out and sign in again.');
+
   const today = new Date().toISOString().slice(0, 10);
   const title = payload.title || [payload.type, payload.period, payload.ay].filter(Boolean).join(' · ');
 
   if (!isSupabaseConfigured) {
-    invalidate('tickets');
-    return { id: `tk${Date.now()}`, code: `TKT-MOCK`, title };
+    await refetchKeys('tickets');
+    return { id: `tk${Date.now()}`, code: 'TKT-MOCK', title };
   }
 
   const code = await nextTicketCode(tenantId);
@@ -299,10 +315,12 @@ export async function createTicket(tenantId, payload) {
     due: payload.due || null,
   };
 
-  const { data, error } = await supabase.from('tickets').insert(row).select('id, code').single();
+  const { data, error } = await supabase.from('tickets').insert(row).select('*').single();
   if (error) throw new Error(error.message);
 
-  invalidate('tickets');
+  const mapped = mapTicket(data);
+  queryClient.setQueryData(['tickets', tenantId], (old) => [mapped, ...(old || [])]);
+  await refetchKeys('tickets');
   return data;
 }
 
@@ -321,14 +339,14 @@ export async function createAssociate(tenantId, payload) {
   };
 
   if (!isSupabaseConfigured) {
-    invalidate('associates');
+    await refetchKeys('associates');
     return { id: `fa${Date.now()}`, ...row };
   }
 
   const { data, error } = await supabase.from('associates').insert(row).select('id').single();
   if (error) throw new Error(error.message);
 
-  invalidate('associates');
+  await refetchKeys('associates');
   return data;
 }
 
@@ -345,13 +363,14 @@ export async function updateAssociate(id, updates) {
   if (!isSupabaseConfigured || !id) return;
   const { error } = await supabase.from('associates').update(row).eq('id', id);
   if (error) throw new Error(error.message);
-  invalidate('associates');
+  await refetchKeys('associates');
 }
 
 export async function promoteTicket(rowId, nextStage) {
   if (!isSupabaseConfigured || !rowId) return;
-  await supabase.from('tickets').update({ stage: nextStage }).eq('id', rowId);
-  invalidate('tickets');
+  const { error } = await supabase.from('tickets').update({ stage: nextStage }).eq('id', rowId);
+  if (error) throw new Error(error.message);
+  await refetchKeys('tickets');
 }
 
 export async function setComplianceStatus(id, status) {

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission } from '../../lib/permissions';
 import { useTickets, promoteTicket } from '../../services/finops';
@@ -13,22 +13,20 @@ const STAGES = [
 
 export default function TicketsModule() {
   const { currentUser } = useAuth();
-  const initialTickets = useTickets();
+  const tickets = useTickets();
   const [view, setView] = useState('kanban');
   const [screen, setScreen] = useState('list');
-  const [tickets, setTickets] = useState(initialTickets);
   const canCreate = hasPermission(currentUser?.role, 'canCreateTicket');
   const canPromote = hasPermission(currentUser?.role, 'canPromoteTicket');
 
-  useEffect(() => { setTickets(initialTickets); }, [initialTickets]);
-
   const promote = (id) => {
-    setTickets(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      const next = t.stage === 'maker' ? 'checker' : t.stage === 'checker' ? 'approved' : 'approved';
-      promoteTicket(t.rowId, next);
-      return { ...t, stage: next };
-    }));
+    const t = tickets.find((x) => x.id === id);
+    if (!t) return;
+    const next = t.stage === 'maker' ? 'checker' : t.stage === 'checker' ? 'approved' : 'approved';
+    promoteTicket(t.rowId, next).catch((err) => {
+      // eslint-disable-next-line no-alert
+      alert(err.message || 'Failed to update ticket');
+    });
   };
 
   if (screen === 'create' && canCreate) {

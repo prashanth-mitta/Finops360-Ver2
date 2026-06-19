@@ -105,6 +105,14 @@ export default function OnboardClient({ onBack, onSuccess }) {
   };
 
   const handleSubmit = async () => {
+    if (step === STEPS.length - 1 && form.services.length === 0) {
+      setErrors({ services: 'Select at least one service' });
+      return;
+    }
+    if (!currentUser?.tenantId) {
+      setSaveError('Session missing tenant. Log out and sign in again.');
+      return;
+    }
     setSaveError('');
     setSaving(true);
     try {
