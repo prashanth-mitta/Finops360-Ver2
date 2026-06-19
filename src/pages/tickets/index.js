@@ -16,6 +16,7 @@ export default function TicketsModule() {
   const { items: tickets, loading, error } = useTicketsQuery();
   const [view, setView] = useState('kanban');
   const [screen, setScreen] = useState('list');
+  const [flash, setFlash] = useState('');
   const canCreate = hasPermission(currentUser?.role, 'canCreateTicket');
   const canPromote = hasPermission(currentUser?.role, 'canPromoteTicket');
 
@@ -23,8 +24,7 @@ export default function TicketsModule() {
     const t = tickets.find((x) => x.id === id);
     if (!t) return;
     const next = t.stage === 'maker' ? 'checker' : t.stage === 'checker' ? 'approved' : 'approved';
-    promoteTicket(t.rowId, next).catch((err) => {
-      // eslint-disable-next-line no-alert
+    promoteTicket(t.rowId, next, currentUser.tenantId).catch((err) => {
       alert(err.message || 'Failed to update ticket');
     });
   };
@@ -33,7 +33,11 @@ export default function TicketsModule() {
     return (
       <CreateTicket
         onBack={() => setScreen('list')}
-        onSuccess={() => setScreen('list')}
+        onSuccess={(created) => {
+          setFlash(created?.id ? `Ticket ${created.id} created successfully.` : 'Ticket created successfully.');
+          setScreen('list');
+          setTimeout(() => setFlash(''), 5000);
+        }}
       />
     );
   }
@@ -62,6 +66,11 @@ export default function TicketsModule() {
         </div>
       </div>
 
+      {flash && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
+          {flash}
+        </div>
+      )}
       {loading && <p className="text-sm text-gray-400 mb-4">Loading tickets…</p>}
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">

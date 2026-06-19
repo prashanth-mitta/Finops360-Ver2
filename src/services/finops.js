@@ -195,6 +195,14 @@ export function useTeam() {
   });
 }
 
+export function useTeamQuery() {
+  const result = useList(['associates'], TEAM, async () => {
+    const r = await supabase.from('associates').select('*').order('name');
+    return { data: (r.data || []).map(mapAssociate), error: r.error };
+  });
+  return { ...result, items: result.data ?? [] };
+}
+
 export function useTasks() {
   return useData(['tasks'], MOCK_TASKS, async () => {
     const r = await supabase
@@ -280,9 +288,14 @@ export function useHeaderNotifications() {
   });
 }
 
-async function refetchKeys(...keys) {
+async function refetchKeys(tenantId, ...keys) {
   await Promise.all(
-    keys.map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+    keys.map((key) =>
+      queryClient.refetchQueries({
+        queryKey: tenantId ? [key, tenantId] : [key],
+        type: 'active',
+      }),
+    ),
   );
 }
 
@@ -322,7 +335,7 @@ export async function createClient(tenantId, payload, services = []) {
   };
 
   if (!isSupabaseConfigured) {
-    await refetchKeys('clients');
+    await refetchKeys(tenantId, 'clients');
     return { id: `c${Date.now()}`, ...row };
   }
 
@@ -338,8 +351,8 @@ export async function createClient(tenantId, payload, services = []) {
 
   const mapped = mapClient(data);
   queryClient.setQueryData(['clients', tenantId], (old) => [...(old || []), mapped]);
-  await refetchKeys('clients');
-  return data;
+  await refetchKeys(tenantId, 'clients');
+  return mapped;
 }
 
 export async function createTicket(tenantId, payload) {
@@ -349,11 +362,17 @@ export async function createTicket(tenantId, payload) {
   const title = payload.title || [payload.type, payload.period, payload.ay].filter(Boolean).join(' · ');
 
   if (!isSupabaseConfigured) {
-    await refetchKeys('tickets');
+    await refetchKeys(tenantId, 'tickets');
     return { id: `tk${Date.now()}`, code: 'TKT-MOCK', title };
   }
 
-  const code = await nextTicketCode(tenantId);
+  let code = `TKT-${Date.now()}`;
+  try {
+    code = await nextTicketCode(tenantId);
+  } catch {
+    // fallback code if sequence lookup fails
+  }
+
   const row = {
     tenant_id: tenantId,
     code,
@@ -374,8 +393,8 @@ export async function createTicket(tenantId, payload) {
 
   const mapped = mapTicket(data);
   queryClient.setQueryData(['tickets', tenantId], (old) => [mapped, ...(old || [])]);
-  await refetchKeys('tickets');
-  return data;
+  await refetchKeys(tenantId, 'tickets');
+  return mapped;
 }
 
 export async function createAssociate(tenantId, payload) {
@@ -393,18 +412,18 @@ export async function createAssociate(tenantId, payload) {
   };
 
   if (!isSupabaseConfigured) {
-    await refetchKeys('associates');
+    await refetchKeys(tenantId, 'associates');
     return { id: `fa${Date.now()}`, ...row };
   }
 
   const { data, error } = await supabase.from('associates').insert(row).select('id').single();
   if (error) throw new Error(error.message);
 
-  await refetchKeys('associates');
+  await refetchKeys(tenantId, 'associates');
   return data;
 }
 
-export async function updateAssociate(id, updates) {
+export async function updateAssociate(id, updates, tenantId) {
   const row = {};
   if (updates.name != null) row.name = updates.name;
   if (updates.role != null) row.role = updates.role;
@@ -417,10 +436,10 @@ export async function updateAssociate(id, updates) {
   if (!isSupabaseConfigured || !id) return;
   const { error } = await supabase.from('associates').update(row).eq('id', id);
   if (error) throw new Error(error.message);
-  await refetchKeys('associates');
+  await refetchKeys(tenantId, 'associates');
 }
 
-export async function updateProfile(id, updates) {
+export async function updateProfile(id, updates, tenantId) {
   const row = {};
   if (updates.name != null) row.name = updates.name;
   if (updates.role != null) row.role = updates.role;
@@ -429,7 +448,7 @@ export async function updateProfile(id, updates) {
   if (!isSupabaseConfigured || !id) return;
   const { error } = await supabase.from('profiles').update(row).eq('id', id);
   if (error) throw new Error(error.message);
-  await refetchKeys('profiles');
+  await refetchKeys(tenantId, 'profiles');
 }
 
 export async function inviteUser(tenantId, { email, password, name, role }) {
@@ -451,18 +470,18 @@ export async function inviteUser(tenantId, { email, password, name, role }) {
   });
   if (error) throw new Error(error.message);
 
-  await refetchKeys('profiles');
+  await refetchKeys(tenantId, 'profiles');
   return {
     ...data,
     emailConfirmationRequired: Boolean(data.user && !data.session),
   };
 }
 
-export async function promoteTicket(rowId, nextStage) {
+export async function promoteTicket(rowId, nextStage, tenantId) {
   if (!isSupabaseConfigured || !rowId) return;
   const { error } = await supabase.from('tickets').update({ stage: nextStage }).eq('id', rowId);
   if (error) throw new Error(error.message);
-  await refetchKeys('tickets');
+  await refetchKeys(tenantId, 'tickets');
 }
 
 export async function setComplianceStatus(id, status) {

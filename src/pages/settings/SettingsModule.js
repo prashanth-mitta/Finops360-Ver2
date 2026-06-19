@@ -40,7 +40,7 @@ export default function SettingsModule() {
   const handleRoleSave = async (profileId) => {
     setSaveError('');
     try {
-      await updateProfile(profileId, { role: editRole });
+      await updateProfile(profileId, { role: editRole }, currentUser.tenantId);
       setEditingId(null);
     } catch (err) {
       setSaveError(err.message || 'Failed to update role');

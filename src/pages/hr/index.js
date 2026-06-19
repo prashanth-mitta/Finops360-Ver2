@@ -45,7 +45,7 @@ export default function HRModule() {
         department: editForm.department,
         status: editForm.status,
         joined: editForm.joined,
-      });
+      }, currentUser.tenantId);
       setSelected(null);
       setEditForm(null);
     } catch (err) {
