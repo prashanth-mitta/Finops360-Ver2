@@ -2,12 +2,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission } from '../../lib/permissions';
-import { useClients } from '../../services/finops';
+import { useClientsQuery } from '../../services/finops';
 import OnboardClient from './OnboardClient';
 
 export default function ClientsModule() {
   const { currentUser } = useAuth();
-  const CLIENTS = useClients();
+  const { items: CLIENTS, loading, error } = useClientsQuery();
   const [view, setView] = useState('list');
   const [selected, setSelected] = useState(null);
   const canCreate = hasPermission(currentUser?.role, 'canCreateClient');
@@ -70,6 +70,12 @@ export default function ClientsModule() {
           </button>
         )}
       </div>
+      {loading && <p className="text-sm text-gray-400 mb-4">Loading clients…</p>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+          Failed to load clients: {error}
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead>
@@ -99,6 +105,9 @@ export default function ClientsModule() {
             ))}
           </tbody>
         </table>
+        {!loading && !CLIENTS.length && (
+          <p className="text-center text-sm text-gray-400 py-8">No clients yet. Use + Onboard Client to add one.</p>
+        )}
       </div>
     </div>
   );

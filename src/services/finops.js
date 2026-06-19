@@ -6,7 +6,8 @@
 // database; otherwise the bundled mock data is used so the demo keeps working.
 // =============================================================================
 import { useQuery } from '@tanstack/react-query';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured, getSupabaseCredentials } from '../lib/supabaseClient';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { queryClient } from '../lib/queryClient';
 import { useAuth } from '../context/AuthContext';
 
@@ -89,6 +90,17 @@ const mapAnnouncement = (r) => ({
 
 const mapComm = (r) => ({ id: r.id, channel: r.channel, to: r.to_addr, subject: r.subject, status: r.status, sentAt: r.sent_at, trigger: r.trigger });
 
+const mapProfile = (r) => ({
+  id: r.id,
+  tenantId: r.tenant_id,
+  name: r.name,
+  email: r.email,
+  role: r.role,
+  avatar: r.avatar,
+  phone: r.phone,
+  createdAt: r.created_at,
+});
+
 // ── Generic loader: run a Supabase query, else return the fallback ───────────
 async function load(fallback, queryFn) {
   if (!isSupabaseConfigured) return fallback;
@@ -101,19 +113,29 @@ async function load(fallback, queryFn) {
   return data ?? fallback;
 }
 
-function useData(key, fallback, queryFn) {
+function useList(key, fallback, queryFn) {
   const { currentUser } = useAuth();
   const live = isSupabaseConfigured && Boolean(currentUser);
 
-  const { data } = useQuery({
+  const query = useQuery({
     queryKey: [...key, currentUser?.tenantId],
     queryFn: () => load(fallback, queryFn),
     enabled: live || !isSupabaseConfigured,
-    // Never seed live queries with mock rows — that made creates look broken.
     initialData: isSupabaseConfigured ? undefined : fallback,
-    refetchOnMount: true,
+    refetchOnMount: 'always',
+    retry: 2,
   });
 
+  if (!isSupabaseConfigured) return { data: fallback, loading: false, error: null };
+  return {
+    data: query.data ?? (query.isFetched ? [] : undefined),
+    loading: live && !query.isFetched && query.isLoading,
+    error: query.error?.message || null,
+  };
+}
+
+function useData(key, fallback, queryFn) {
+  const { data } = useList(key, fallback, queryFn);
   if (!isSupabaseConfigured) return fallback;
   return data ?? [];
 }
@@ -126,12 +148,44 @@ export function useClients() {
   });
 }
 
+export function useClientsQuery() {
+  const result = useList(['clients'], CLIENTS, async () => {
+    const r = await supabase.from('clients').select('*').order('name');
+    return { data: (r.data || []).map(mapClient), error: r.error };
+  });
+  return { ...result, items: result.data ?? [] };
+}
+
 export function useTickets() {
   const fallback = TICKETS.map((t) => ({ ...t, rowId: t.id }));
   return useData(['tickets'], fallback, async () => {
     const r = await supabase.from('tickets').select('*').order('created', { ascending: false });
     return { data: (r.data || []).map(mapTicket), error: r.error };
   });
+}
+
+export function useTicketsQuery() {
+  const fallback = TICKETS.map((t) => ({ ...t, rowId: t.id }));
+  const result = useList(['tickets'], fallback, async () => {
+    const r = await supabase.from('tickets').select('*').order('created', { ascending: false });
+    return { data: (r.data || []).map(mapTicket), error: r.error };
+  });
+  return { ...result, items: result.data ?? [] };
+}
+
+export function useProfiles() {
+  return useData(['profiles'], [], async () => {
+    const r = await supabase.from('profiles').select('*').order('name');
+    return { data: (r.data || []).map(mapProfile), error: r.error };
+  });
+}
+
+export function useProfilesQuery() {
+  const result = useList(['profiles'], [], async () => {
+    const r = await supabase.from('profiles').select('*').order('name');
+    return { data: (r.data || []).map(mapProfile), error: r.error };
+  });
+  return { ...result, items: result.data ?? [] };
 }
 
 export function useTeam() {
@@ -364,6 +418,44 @@ export async function updateAssociate(id, updates) {
   const { error } = await supabase.from('associates').update(row).eq('id', id);
   if (error) throw new Error(error.message);
   await refetchKeys('associates');
+}
+
+export async function updateProfile(id, updates) {
+  const row = {};
+  if (updates.name != null) row.name = updates.name;
+  if (updates.role != null) row.role = updates.role;
+  if (updates.phone != null) row.phone = updates.phone;
+
+  if (!isSupabaseConfigured || !id) return;
+  const { error } = await supabase.from('profiles').update(row).eq('id', id);
+  if (error) throw new Error(error.message);
+  await refetchKeys('profiles');
+}
+
+export async function inviteUser(tenantId, { email, password, name, role }) {
+  if (!tenantId) throw new Error('Missing tenant. Log out and sign in again.');
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured on this deployment.');
+
+  const { url, anonKey } = getSupabaseCredentials();
+  const inviteClient = createSupabaseClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  const avatar = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const { data, error } = await inviteClient.auth.signUp({
+    email: email.trim(),
+    password,
+    options: {
+      data: { name, role, tenant_id: tenantId, avatar },
+    },
+  });
+  if (error) throw new Error(error.message);
+
+  await refetchKeys('profiles');
+  return {
+    ...data,
+    emailConfirmationRequired: Boolean(data.user && !data.session),
+  };
 }
 
 export async function promoteTicket(rowId, nextStage) {

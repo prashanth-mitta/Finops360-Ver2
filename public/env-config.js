@@ -1,0 +1,1 @@
+window.__FINOPS_ENV__={"REACT_APP_SUPABASE_URL":"https://jbyrcixklqbaznerhoyh.supabase.co","REACT_APP_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpieXJjaXhrbHFiYXpuZXJob3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4ODQ4NTksImV4cCI6MjA5NzQ2MDg1OX0.UTP5x8paFbueGRribDXtmrvC_0WzxlqPcSjUz_GSg80"};

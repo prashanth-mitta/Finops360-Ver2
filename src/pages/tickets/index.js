@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission } from '../../lib/permissions';
-import { useTickets, promoteTicket } from '../../services/finops';
+import { useTicketsQuery, promoteTicket } from '../../services/finops';
 import CreateTicket from './CreateTicket';
 
 const STAGES = [
@@ -13,7 +13,7 @@ const STAGES = [
 
 export default function TicketsModule() {
   const { currentUser } = useAuth();
-  const tickets = useTickets();
+  const { items: tickets, loading, error } = useTicketsQuery();
   const [view, setView] = useState('kanban');
   const [screen, setScreen] = useState('list');
   const canCreate = hasPermission(currentUser?.role, 'canCreateTicket');
@@ -61,6 +61,13 @@ export default function TicketsModule() {
           )}
         </div>
       </div>
+
+      {loading && <p className="text-sm text-gray-400 mb-4">Loading tickets…</p>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+          Failed to load tickets: {error}
+        </div>
+      )}
 
       {view === 'kanban' ? (
         <div className="grid grid-cols-3 gap-4">

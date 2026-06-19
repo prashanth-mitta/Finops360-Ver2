@@ -13,7 +13,9 @@
     "recharts": "^2.8.0"
   },
   "scripts": {
+    "prestart": "node scripts/generate-env-config.js",
     "start": "react-scripts start",
+    "prebuild": "node scripts/generate-env-config.js",
     "build": "react-scripts build"
   },
   "eslintConfig": {
