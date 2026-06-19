@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, User, Building2, Shield, FileText, Settings } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { createClient } from '../../services/finops';
 
 const STEPS = [
   { key: 'type', label: 'Client type', icon: User },
@@ -20,6 +22,7 @@ const ALL_SERVICES = [
 const ENTITY_TYPES = ['Private Limited', 'LLP', 'Partnership', 'Proprietorship', 'OPC', 'Public Limited', 'Trust / NGO'];
 
 export default function OnboardClient({ onBack, onSuccess }) {
+  const { currentUser } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     clientType: '',
@@ -43,6 +46,8 @@ export default function OnboardClient({ onBack, onSuccess }) {
   });
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
   const toggleService = (s) => set('services', form.services.includes(s) ? form.services.filter(x => x !== s) : [...form.services, s]);
@@ -75,9 +80,42 @@ export default function OnboardClient({ onBack, onSuccess }) {
   const next = () => { if (validateStep()) setStep(s => s + 1); };
   const back = () => { setStep(s => s - 1); setErrors({}); };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => onSuccess && onSuccess(), 1500);
+  const buildPayload = () => {
+    const isIndividual = form.clientType === 'individual';
+    const name = isIndividual
+      ? `${form.firstName} ${form.lastName}`.trim()
+      : form.companyName.trim();
+    const contact = isIndividual
+      ? name
+      : `${form.primaryContactFirst || ''} ${form.primaryContactLast || ''}`.trim() || name;
+    const address = form.businessAddress || form.registeredAddress || form.residentialAddress || null;
+
+    return {
+      name,
+      contact,
+      email: form.email.trim(),
+      phone: form.mobile ? `+91 ${form.mobile}` : null,
+      gstin: form.gstin?.trim() || null,
+      pan: form.pan?.trim().toUpperCase() || null,
+      address,
+      plan: form.tier || 'Standard',
+      status: 'Active',
+      manager: currentUser?.name || null,
+    };
+  };
+
+  const handleSubmit = async () => {
+    setSaveError('');
+    setSaving(true);
+    try {
+      await createClient(currentUser.tenantId, buildPayload(), form.services);
+      setSubmitted(true);
+      setTimeout(() => onSuccess && onSuccess(), 1200);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to onboard client');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const err = (f) => errors[f] ? <p className="text-red-500 text-xs mt-1">{errors[f]}</p> : null;
@@ -463,11 +501,16 @@ export default function OnboardClient({ onBack, onSuccess }) {
             Next <ArrowRight size={15} />
           </button>
         ) : (
-          <button onClick={handleSubmit} className="btn-primary flex items-center gap-2 bg-green-600 hover:bg-green-700">
-            <Check size={15} /> Confirm & onboard
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="btn-primary flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60"
+          >
+            <Check size={15} /> {saving ? 'Saving…' : 'Confirm & onboard'}
           </button>
         )}
       </div>
+      {saveError && <p className="text-red-500 text-sm mt-3 text-center">{saveError}</p>}
     </div>
   );
 }

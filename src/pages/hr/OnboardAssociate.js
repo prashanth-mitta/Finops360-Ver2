@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, User, Briefcase, Shield, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { createAssociate } from '../../services/finops';
 
 const DEPARTMENTS = ['Tax & Compliance', 'Audit', 'Accounts', 'Payroll', 'GST', 'Management', 'HR', 'Sales'];
 const DESIGNATIONS = ['Junior Associate', 'Associate', 'Senior Associate', 'Assistant Manager', 'Manager', 'Senior Manager', 'CA', 'Partner'];
@@ -11,9 +13,12 @@ const STEPS = [
 ];
 
 export default function OnboardAssociate({ onBack, onSuccess }) {
+  const { currentUser } = useAuth();
   const [step, setStep] = useState(0);
   const [showPass, setShowPass] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     firstName: '', lastName: '', middleName: '',
@@ -55,7 +60,28 @@ export default function OnboardAssociate({ onBack, onSuccess }) {
 
   const next = () => { if (validate()) setStep(s => s + 1); };
   const back = () => { setStep(s => s - 1); setErrors({}); };
-  const handleSubmit = () => { setSubmitted(true); setTimeout(() => onSuccess && onSuccess(), 1500); };
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setSaveError('');
+    setSaving(true);
+    try {
+      const roleMap = { associate: 'Associate', sales: 'Sales', hr: 'HR' };
+      await createAssociate(currentUser.tenantId, {
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        role: roleMap[form.role] || 'Associate',
+        email: form.email.trim(),
+        phone: form.mobile ? `+91 ${form.mobile}` : null,
+        department: form.department,
+        joined: form.dateOfJoining,
+      });
+      setSubmitted(true);
+      setTimeout(() => onSuccess && onSuccess(), 1200);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to add team member');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const inp = (f) => `input-field ${errors[f] ? 'border-red-300' : ''}`;
   const err = (f) => errors[f] ? <p className="text-red-500 text-xs mt-1">{errors[f]}</p> : null;
@@ -313,9 +339,18 @@ export default function OnboardAssociate({ onBack, onSuccess }) {
         </button>
         {step < STEPS.length - 1
           ? <button onClick={next} className="btn-primary flex items-center gap-2">Next <ArrowRight size={15} /></button>
-          : <button onClick={handleSubmit} className="btn-primary flex items-center gap-2 bg-green-600 hover:bg-green-700"><Check size={15} /> Confirm & onboard</button>
+          : (
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="btn-primary flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60"
+            >
+              <Check size={15} /> {saving ? 'Saving…' : 'Confirm & onboard'}
+            </button>
+          )
         }
       </div>
+      {saveError && <p className="text-red-500 text-sm mt-3 text-center">{saveError}</p>}
     </div>
   );
 }

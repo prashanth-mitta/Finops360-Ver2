@@ -1,6 +1,9 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { hasPermission } from '../../lib/permissions';
 import { useTickets, promoteTicket } from '../../services/finops';
+import CreateTicket from './CreateTicket';
 
 const STAGES = [
   { id: 'maker', label: 'Maker (In Progress)', color: 'border-amber-400' },
@@ -9,9 +12,13 @@ const STAGES = [
 ];
 
 export default function TicketsModule() {
+  const { currentUser } = useAuth();
   const initialTickets = useTickets();
   const [view, setView] = useState('kanban');
+  const [screen, setScreen] = useState('list');
   const [tickets, setTickets] = useState(initialTickets);
+  const canCreate = hasPermission(currentUser?.role, 'canCreateTicket');
+  const canPromote = hasPermission(currentUser?.role, 'canPromoteTicket');
 
   useEffect(() => { setTickets(initialTickets); }, [initialTickets]);
 
@@ -23,6 +30,15 @@ export default function TicketsModule() {
       return { ...t, stage: next };
     }));
   };
+
+  if (screen === 'create' && canCreate) {
+    return (
+      <CreateTicket
+        onBack={() => setScreen('list')}
+        onSuccess={() => setScreen('list')}
+      />
+    );
+  }
 
   return (
     <div className="p-6">
@@ -37,9 +53,14 @@ export default function TicketsModule() {
               </button>
             ))}
           </div>
-          <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-            + New Ticket
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setScreen('create')}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+            >
+              + New Ticket
+            </button>
+          )}
         </div>
       </div>
 
@@ -65,7 +86,7 @@ export default function TicketsModule() {
                     <p className="text-sm font-medium text-gray-800 mb-0.5">{t.type}</p>
                     <p className="text-xs text-gray-400 mb-2">{t.client}</p>
                     <p className="text-xs text-gray-400 mb-3">Due: {t.due}</p>
-                    {stage.id !== 'approved' && (
+                    {canPromote && stage.id !== 'approved' && (
                       <button onClick={() => promote(t.id)}
                         className="w-full text-xs bg-indigo-600 text-white py-1.5 rounded-lg hover:bg-indigo-700 font-medium">
                         {stage.id === 'maker' ? 'Send to Checker →' : 'Approve ✓'}

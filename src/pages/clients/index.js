@@ -1,11 +1,25 @@
 /* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { hasPermission } from '../../lib/permissions';
 import { useClients } from '../../services/finops';
+import OnboardClient from './OnboardClient';
 
 export default function ClientsModule() {
+  const { currentUser } = useAuth();
   const CLIENTS = useClients();
   const [view, setView] = useState('list');
   const [selected, setSelected] = useState(null);
+  const canCreate = hasPermission(currentUser?.role, 'canCreateClient');
+
+  if (view === 'create' && canCreate) {
+    return (
+      <OnboardClient
+        onBack={() => setView('list')}
+        onSuccess={() => setView('list')}
+      />
+    );
+  }
 
   if (selected) {
     return (
@@ -34,7 +48,7 @@ export default function ClientsModule() {
             ].map(([label, value]) => (
               <div key={label} className="border-b border-gray-50 pb-3">
                 <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-                <p className="text-sm font-medium text-gray-800">{value}</p>
+                <p className="text-sm font-medium text-gray-800">{value || '—'}</p>
               </div>
             ))}
           </div>
@@ -47,9 +61,14 @@ export default function ClientsModule() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-semibold text-gray-900">Clients ({CLIENTS.length})</h2>
-        <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-          + Onboard Client
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setView('create')}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+          >
+            + Onboard Client
+          </button>
+        )}
       </div>
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full">

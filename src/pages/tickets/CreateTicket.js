@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Plus, X } from 'lucide-react';
-import { CLIENTS, TICKET_TYPES, TEAM_MEMBERS, DOC_CHECKLISTS } from '../../data/mockData';
-import { useAuth, ROLES } from '../../context/AuthContext';
+import { TICKET_TYPES, DOC_CHECKLISTS } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
+import { useClients, useTeam, createTicket } from '../../services/finops';
 
 export default function CreateTicket({ onBack, onSuccess }) {
   const { currentUser } = useAuth();
+  const allClients = useClients();
+  const team = useTeam();
   const [form, setForm] = useState({
     clientId: '', type: '', period: '', ay: '',
     dueDate: '', internalTargetDate: '', priority: 'Medium',
@@ -14,6 +17,8 @@ export default function CreateTicket({ onBack, onSuccess }) {
   const [customDoc, setCustomDoc] = useState('');
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const set = (f, v) => { setForm(p => ({ ...p, [f]: v })); setErrors(p => ({ ...p, [f]: '' })); };
 
@@ -35,10 +40,8 @@ export default function CreateTicket({ onBack, onSuccess }) {
   };
   const removeItem = (id) => setChecklist(prev => prev.filter(c => c.id !== id));
 
-  const associates = TEAM_MEMBERS.filter(u => u.role === ROLES.ASSOCIATE);
-  const clients = currentUser?.role === ROLES.SALES
-    ? CLIENTS.filter(c => c.assignedSales === currentUser.id)
-    : CLIENTS;
+  const associates = team.filter((u) => String(u.role).toLowerCase() === 'associate');
+  const clients = allClients;
 
   const validate = () => {
     const e = {};
@@ -50,13 +53,34 @@ export default function CreateTicket({ onBack, onSuccess }) {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-    setSubmitted(true);
-    setTimeout(() => onSuccess && onSuccess(), 1500);
+    const client = clients.find((c) => c.id === form.clientId);
+    const assignee = associates.find((u) => u.id === form.assignedTo);
+    setSaveError('');
+    setSaving(true);
+    try {
+      await createTicket(currentUser.tenantId, {
+        clientId: form.clientId,
+        clientName: client?.name,
+        type: form.type,
+        period: form.period,
+        ay: form.ay,
+        due: form.dueDate,
+        priority: form.priority,
+        assignee: assignee?.name || null,
+        title: [form.type, form.period, form.ay].filter(Boolean).join(' · '),
+      });
+      setSubmitted(true);
+      setTimeout(() => onSuccess && onSuccess(), 1200);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to create ticket');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const getClientName = (c) => c.clientType === 'individual' ? `${c.firstName} ${c.lastName}` : c.companyName;
+  const getClientName = (c) => c.name;
 
   if (submitted) {
     return (
@@ -200,10 +224,9 @@ export default function CreateTicket({ onBack, onSuccess }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign to associate <span className="text-red-500">*</span></label>
                 <select className={`input-field ${errors.assignedTo ? 'border-red-300' : ''}`} value={form.assignedTo} onChange={e => set('assignedTo', e.target.value)}>
                   <option value="">Select associate</option>
-                  {associates.map(u => {
-                    const active = CLIENTS.filter(c => c.assignedAssociate === u.id).length;
-                    return <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({active} active)</option>;
-                  })}
+                  {associates.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
                 </select>
                 {errors.assignedTo && <p className="text-red-500 text-xs mt-1">{errors.assignedTo}</p>}
               </div>
@@ -250,9 +273,14 @@ export default function CreateTicket({ onBack, onSuccess }) {
             </div>
           </div>
 
-          <button onClick={handleSubmit} className="w-full btn-primary py-3 flex items-center justify-center gap-2 text-sm">
-            <Check size={16} /> Create ticket
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="w-full btn-primary py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
+          >
+            <Check size={16} /> {saving ? 'Creating…' : 'Create ticket'}
           </button>
+          {saveError && <p className="text-red-500 text-xs mt-2 text-center">{saveError}</p>}
         </div>
       </div>
     </div>

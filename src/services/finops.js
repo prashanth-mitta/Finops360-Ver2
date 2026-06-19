@@ -7,6 +7,7 @@
 // =============================================================================
 import { useQuery } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { queryClient } from '../lib/queryClient';
 
 // ── Fallback mock data (used only when Supabase is not configured) ───────────
 import { CLIENTS, TICKETS, TEAM, NOTIFICATIONS } from '../data/mockData';
@@ -217,10 +218,140 @@ export function useHeaderNotifications() {
   });
 }
 
+function invalidate(...keys) {
+  keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+}
+
+async function nextTicketCode(tenantId) {
+  const { data } = await supabase
+    .from('tickets')
+    .select('code')
+    .eq('tenant_id', tenantId)
+    .not('code', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const last = data?.[0]?.code;
+  const num = last ? (parseInt(String(last).replace(/\D/g, ''), 10) || 0) + 1 : 1;
+  return `TKT-${String(num).padStart(3, '0')}`;
+}
+
 // ── Write helpers (best-effort; safe no-ops when Supabase is not configured) ──
+export async function createClient(tenantId, payload, services = []) {
+  const row = {
+    tenant_id: tenantId,
+    name: payload.name,
+    gstin: payload.gstin || null,
+    pan: payload.pan || null,
+    contact: payload.contact || null,
+    email: payload.email || null,
+    phone: payload.phone || null,
+    city: payload.city || null,
+    address: payload.address || null,
+    state: payload.state || null,
+    state_code: payload.stateCode || null,
+    status: payload.status || 'Active',
+    plan: payload.plan || 'Standard',
+    since: payload.since || new Date().toISOString().slice(0, 10),
+    manager: payload.manager || null,
+  };
+
+  if (!isSupabaseConfigured) {
+    invalidate('clients');
+    return { id: `c${Date.now()}`, ...row };
+  }
+
+  const { data, error } = await supabase.from('clients').insert(row).select('id').single();
+  if (error) throw new Error(error.message);
+
+  if (services.length) {
+    const { error: svcErr } = await supabase.from('client_services').insert(
+      services.map((service) => ({ tenant_id: tenantId, client_id: data.id, service })),
+    );
+    if (svcErr) throw new Error(svcErr.message);
+  }
+
+  invalidate('clients');
+  return data;
+}
+
+export async function createTicket(tenantId, payload) {
+  const today = new Date().toISOString().slice(0, 10);
+  const title = payload.title || [payload.type, payload.period, payload.ay].filter(Boolean).join(' · ');
+
+  if (!isSupabaseConfigured) {
+    invalidate('tickets');
+    return { id: `tk${Date.now()}`, code: `TKT-MOCK`, title };
+  }
+
+  const code = await nextTicketCode(tenantId);
+  const row = {
+    tenant_id: tenantId,
+    code,
+    client_id: payload.clientId || null,
+    client_name: payload.clientName || null,
+    type: payload.type,
+    title,
+    priority: payload.priority || 'Medium',
+    status: 'In Progress',
+    assignee: payload.assignee || null,
+    stage: 'maker',
+    created: today,
+    due: payload.due || null,
+  };
+
+  const { data, error } = await supabase.from('tickets').insert(row).select('id, code').single();
+  if (error) throw new Error(error.message);
+
+  invalidate('tickets');
+  return data;
+}
+
+export async function createAssociate(tenantId, payload) {
+  const row = {
+    tenant_id: tenantId,
+    name: payload.name,
+    role: payload.role || 'Associate',
+    email: payload.email || null,
+    phone: payload.phone || null,
+    department: payload.department || null,
+    status: payload.status || 'Active',
+    joined: payload.joined || new Date().toISOString().slice(0, 10),
+    clients_count: 0,
+    tickets_count: 0,
+  };
+
+  if (!isSupabaseConfigured) {
+    invalidate('associates');
+    return { id: `fa${Date.now()}`, ...row };
+  }
+
+  const { data, error } = await supabase.from('associates').insert(row).select('id').single();
+  if (error) throw new Error(error.message);
+
+  invalidate('associates');
+  return data;
+}
+
+export async function updateAssociate(id, updates) {
+  const row = {};
+  if (updates.name != null) row.name = updates.name;
+  if (updates.role != null) row.role = updates.role;
+  if (updates.email != null) row.email = updates.email;
+  if (updates.phone != null) row.phone = updates.phone;
+  if (updates.department != null) row.department = updates.department;
+  if (updates.status != null) row.status = updates.status;
+  if (updates.joined != null) row.joined = updates.joined;
+
+  if (!isSupabaseConfigured || !id) return;
+  const { error } = await supabase.from('associates').update(row).eq('id', id);
+  if (error) throw new Error(error.message);
+  invalidate('associates');
+}
+
 export async function promoteTicket(rowId, nextStage) {
   if (!isSupabaseConfigured || !rowId) return;
   await supabase.from('tickets').update({ stage: nextStage }).eq('id', rowId);
+  invalidate('tickets');
 }
 
 export async function setComplianceStatus(id, status) {
