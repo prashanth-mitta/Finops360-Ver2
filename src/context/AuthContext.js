@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { debugLog } from '../lib/debugLog';
 
 const AuthContext = createContext(null);
 
@@ -48,7 +49,7 @@ export function AuthProvider({ children }) {
       .maybeSingle();
     profile = data;
     const meta = authUser.user_metadata || {};
-    return {
+    const user = {
       id: authUser.id,
       email: authUser.email,
       name: profile?.name || meta.name || authUser.email,
@@ -56,6 +57,16 @@ export function AuthProvider({ children }) {
       avatar: profile?.avatar || meta.avatar || (authUser.email || '??').slice(0, 2).toUpperCase(),
       tenantId: profile?.tenant_id || meta.tenant_id || 'finops',
     };
+    // #region agent log
+    debugLog('AuthContext.js:hydrateUser', 'User hydrated', {
+      role: user.role,
+      tenantId: user.tenantId,
+      hasProfile: Boolean(profile),
+      profileRole: profile?.role || null,
+      isSupabaseConfigured,
+    }, 'B');
+    // #endregion
+    return user;
   }
 
   // ── Restore session + subscribe to auth changes (Supabase mode only) ───────

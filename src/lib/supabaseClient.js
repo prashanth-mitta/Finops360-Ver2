@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { debugLog } from './debugLog';
 
 function runtimeEnv() {
   if (typeof window !== 'undefined' && window.__FINOPS_ENV__) return window.__FINOPS_ENV__;
@@ -13,6 +14,20 @@ const anonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || runtime.REACT_APP_SUP
 // so the existing UAT demo never breaks. As soon as a project URL + anon key
 // are configured, every service switches to the live Supabase database.
 export const isSupabaseConfigured = Boolean(url && anonKey);
+
+// #region agent log
+debugLog('supabaseClient.js:init', 'Supabase config resolved', {
+  isSupabaseConfigured,
+  envSource: process.env.REACT_APP_SUPABASE_URL
+    ? 'process.env'
+    : runtime.REACT_APP_SUPABASE_URL
+      ? 'window.__FINOPS_ENV__'
+      : 'none',
+  hasUrl: Boolean(url),
+  hasAnonKey: Boolean(anonKey),
+  buildTag: 'supabase-v2',
+}, 'A');
+// #endregion
 
 export const supabase = isSupabaseConfigured
   ? createClient(url, anonKey, {

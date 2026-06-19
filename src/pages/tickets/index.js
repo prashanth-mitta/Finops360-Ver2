@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { hasPermission } from '../../lib/permissions';
 import { useTicketsQuery, promoteTicket } from '../../services/finops';
 import CreateTicket from './CreateTicket';
+import { debugLog } from '../../lib/debugLog';
 
 const STAGES = [
   { id: 'maker', label: 'Maker (In Progress)', color: 'border-amber-400' },
@@ -19,6 +20,17 @@ export default function TicketsModule() {
   const [flash, setFlash] = useState('');
   const canCreate = hasPermission(currentUser?.role, 'canCreateTicket');
   const canPromote = hasPermission(currentUser?.role, 'canPromoteTicket');
+
+  // #region agent log
+  debugLog('tickets/index.js:render', 'Tickets module state', {
+    role: currentUser?.role,
+    canCreate,
+    ticketCount: tickets.length,
+    loading,
+    error: error || null,
+    screen,
+  }, 'B');
+  // #endregion
 
   const promote = (id) => {
     const t = tickets.find((x) => x.id === id);

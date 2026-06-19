@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured, getSupabaseCredentials } from '../lib/s
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { queryClient } from '../lib/queryClient';
 import { useAuth } from '../context/AuthContext';
+import { debugLog } from '../lib/debugLog';
 
 // ── Fallback mock data (used only when Supabase is not configured) ───────────
 import { CLIENTS, TICKETS, TEAM, NOTIFICATIONS } from '../data/mockData';
@@ -358,6 +359,15 @@ export async function createClient(tenantId, payload, services = []) {
 export async function createTicket(tenantId, payload) {
   if (!tenantId) throw new Error('Missing tenant. Log out and sign in again.');
 
+  // #region agent log
+  debugLog('finops.js:createTicket', 'createTicket called', {
+    tenantId,
+    isSupabaseConfigured,
+    clientId: payload.clientId || null,
+    type: payload.type || null,
+  }, 'D');
+  // #endregion
+
   const today = new Date().toISOString().slice(0, 10);
   const title = payload.title || [payload.type, payload.period, payload.ay].filter(Boolean).join(' · ');
 
@@ -389,6 +399,13 @@ export async function createTicket(tenantId, payload) {
   };
 
   const { data, error } = await supabase.from('tickets').insert(row).select('*').single();
+  // #region agent log
+  debugLog('finops.js:createTicket:result', 'createTicket insert result', {
+    ok: !error,
+    errorMessage: error?.message || null,
+    ticketCode: data?.code || null,
+  }, 'D');
+  // #endregion
   if (error) throw new Error(error.message);
 
   const mapped = mapTicket(data);
