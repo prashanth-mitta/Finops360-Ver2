@@ -1,12 +1,11 @@
 /* eslint-disable no-unused-vars */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { debugLog } from '../lib/debugLog';
 
 const AuthContext = createContext(null);
 
-// Canonical role identifiers (snake_case) used across the whole platform.
 export const ROLES = {
+  SUPER_ADMIN: 'super_admin',
   MASTER_ADMIN: 'master_admin',
   SALES: 'sales',
   HR: 'hr',
@@ -15,6 +14,7 @@ export const ROLES = {
 };
 
 export const ROLE_LABELS = {
+  super_admin: 'Super Admin',
   master_admin: 'Master Admin',
   sales: 'Sales',
   hr: 'HR',
@@ -24,52 +24,46 @@ export const ROLE_LABELS = {
 
 export const roleLabel = (role) => ROLE_LABELS[role] || role;
 
-// Demo users (used only as a fallback when Supabase is not configured).
-const DEMO_USERS = [
-  { id: '1', name: 'Arjun Sharma', email: 'admin@finops360.in', password: 'admin123', role: ROLES.MASTER_ADMIN, avatar: 'AS', tenantId: 'finops' },
-  { id: '2', name: 'Priya Reddy', email: 'sales@finops360.in', password: 'sales123', role: ROLES.SALES, avatar: 'PR', tenantId: 'finops' },
-  { id: '3', name: 'Kavya Nair', email: 'hr@finops360.in', password: 'hr123', role: ROLES.HR, avatar: 'KN', tenantId: 'finops' },
-  { id: '4', name: 'Rahul Mehta', email: 'associate@finops360.in', password: 'assoc123', role: ROLES.ASSOCIATE, avatar: 'RM', tenantId: 'finops' },
-  { id: '5', name: 'Rohan Gupta', email: 'client@example.com', password: 'client123', role: ROLES.CLIENT, avatar: 'RG', tenantId: 'finops' },
-];
+/** Turn phone / email input into the auth email Supabase expects. */
+export function resolveLoginEmail(identifier) {
+  const raw = String(identifier || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw.toLowerCase();
+
+  let digits = raw.replace(/\D/g, '');
+  if (digits.length > 10 && digits.startsWith('91')) {
+    digits = digits.slice(-10);
+  }
+  if (digits.length === 10) {
+    return `${digits}@phone.finops360.in`;
+  }
+  return raw;
+}
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(isSupabaseConfigured);
 
-  // ── Build the in-app user object from an auth user + its profile row ───────
   async function hydrateUser(authUser) {
     if (!authUser) return null;
-    let profile = null;
-    const { data } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('name, role, avatar, tenant_id')
+      .select('name, role, avatar, tenant_id, phone')
       .eq('id', authUser.id)
       .maybeSingle();
-    profile = data;
     const meta = authUser.user_metadata || {};
-    const user = {
+    return {
       id: authUser.id,
       email: authUser.email,
       name: profile?.name || meta.name || authUser.email,
       role: profile?.role || meta.role || ROLES.CLIENT,
       avatar: profile?.avatar || meta.avatar || (authUser.email || '??').slice(0, 2).toUpperCase(),
       tenantId: profile?.tenant_id || meta.tenant_id || 'finops',
+      phone: profile?.phone || meta.phone || null,
     };
-    // #region agent log
-    debugLog('AuthContext.js:hydrateUser', 'User hydrated', {
-      role: user.role,
-      tenantId: user.tenantId,
-      hasProfile: Boolean(profile),
-      profileRole: profile?.role || null,
-      isSupabaseConfigured,
-    }, 'B');
-    // #endregion
-    return user;
   }
 
-  // ── Restore session + subscribe to auth changes (Supabase mode only) ───────
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let active = true;
@@ -93,37 +87,30 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ── Login ──────────────────────────────────────────────────────────────────
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setError('');
     if (!isSupabaseConfigured) {
-      const user = DEMO_USERS.find((u) => u.email === email && u.password === password);
-      if (user) {
-        const { password: _pw, ...safe } = user;
-        setCurrentUser(safe);
-        return true;
-      }
-      setError('Invalid email or password');
+      setError('Database not connected. Configure Supabase to sign in.');
       return false;
     }
 
+    const email = resolveLoginEmail(identifier);
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
     if (err) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || 'Invalid mobile/email or password');
       return false;
     }
     if (data.user) setCurrentUser(await hydrateUser(data.user));
     return true;
   };
 
-  // ── Logout ───────────────────────────────────────────────────────────────--
   const logout = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     setCurrentUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout, error, loading, DEMO_USERS }}>
+    <AuthContext.Provider value={{ currentUser, login, logout, error, loading }}>
       {children}
     </AuthContext.Provider>
   );

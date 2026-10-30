@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 const PLANS = ['starter', 'professional', 'enterprise'];
 const PRESET_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b'];
 
-export default function PartnerForm({ partner, onSave, onClose }) {
+export default function PartnerForm({ partner, onSave, onClose, saving, saveError }) {
   const isEdit = !!partner;
   const [form, setForm] = useState({
     firmName: '', tagline: '', logoText: '', primaryColor: '#6366f1',
@@ -203,8 +203,13 @@ export default function PartnerForm({ partner, onSave, onClose }) {
             {step === 3 && (
               <>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-2">
-                  <p className="text-xs font-semibold text-indigo-800 mb-1">🔐 Partner Admin Account</p>
-                  <p className="text-xs text-indigo-600">This creates the Master Admin account for <strong>{form.firmName}</strong>. They will use these credentials to log in to their platform.</p>
+                  <p className="text-xs font-semibold text-indigo-800 mb-1">Partner admin account</p>
+                  <p className="text-xs text-indigo-600">
+                    Creates a <strong>Master Admin</strong> for <strong>{form.firmName}</strong>.
+                    They use the <strong>same login page</strong> as FinOps 360 and get full app access
+                    for their firm (Clients, Tickets, HR, Documents, Settings). The Partners module is
+                    not shown to them.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Admin Full Name <span className="text-red-500">*</span></label>
@@ -223,8 +228,16 @@ export default function PartnerForm({ partner, onSave, onClose }) {
                   {errors.adminPassword && <p className="text-xs text-red-500 mt-1">{errors.adminPassword}</p>}
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="text-xs text-amber-700 font-medium">⚠️ Share these credentials securely with the partner firm admin. They can change their password after first login in Settings.</p>
+                  <p className="text-xs text-amber-700 font-medium">
+                    Share these credentials securely. The partner admin signs in at your FinOps 360 URL —
+                    their data is isolated by tenant automatically.
+                  </p>
                 </div>
+                {saveError && (
+                  <p className="text-xs text-red-600 font-medium bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {saveError}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -240,8 +253,8 @@ export default function PartnerForm({ partner, onSave, onClose }) {
               <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
               {step < 3
                 ? <button onClick={next} className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">Next →</button>
-                : <button onClick={submit} className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm">
-                    {isEdit ? '✓ Save Changes' : '🚀 Create Partner'}
+                : <button onClick={submit} disabled={saving} className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors shadow-sm">
+                    {saving ? 'Creating…' : isEdit ? '✓ Save Changes' : 'Create Partner'}
                   </button>
               }
             </div>

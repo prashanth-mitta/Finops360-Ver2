@@ -2,16 +2,16 @@ import { ROLES } from '../context/AuthContext';
 
 /** Role-based access rules for FinOps 360 Connect */
 export const PERMISSIONS = {
-  // Master Admin — full access
-  canCreateClient: [ROLES.MASTER_ADMIN, ROLES.SALES],
-  canCreateTicket: [ROLES.MASTER_ADMIN, ROLES.SALES],
-  canPromoteTicket: [ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
-  canManageEmployees: [ROLES.MASTER_ADMIN, ROLES.HR],
-  canManageUsers: [ROLES.MASTER_ADMIN],
-  canViewClients: [ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
-  canViewTickets: [ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
+  canCreateClient: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.SALES],
+  canCreateTicket: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.SALES],
+  canPromoteTicket: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
+  canManageEmployees: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.HR],
+  canManageUsers: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN],
+  canViewClients: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
+  canViewTickets: [ROLES.SUPER_ADMIN, ROLES.MASTER_ADMIN, ROLES.SALES, ROLES.ASSOCIATE],
 };
 
 export function hasPermission(role, permission) {
+  if (role === ROLES.SUPER_ADMIN) return true;
   return (PERMISSIONS[permission] || []).includes(role);
 }

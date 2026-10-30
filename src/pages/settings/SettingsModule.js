@@ -20,7 +20,7 @@ export default function SettingsModule() {
   const { items: profiles, loading, error } = useProfilesQuery();
 
   const [tab, setTab] = useState('Firm Profile');
-  const [firmName, setFirmName] = useState('FinOps 360 Consulting LLP');
+  const [firmName, setFirmName] = useState('FinOps 360');
   const [saved, setSaved] = useState(false);
 
   const [showInvite, setShowInvite] = useState(false);
@@ -69,22 +69,28 @@ export default function SettingsModule() {
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-5">Settings</h2>
-      <div className="flex gap-6">
-        <div className="w-44 flex-shrink-0">
-          <nav className="space-y-1">
-            {TABS.map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${tab === t ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'}`}>
+    <div className="p-4 sm:p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4 sm:mb-5">Settings</h2>
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        <div className="w-full lg:w-44 flex-shrink-0">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0 lg:space-y-1">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`flex-shrink-0 lg:w-full text-left px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                  tab === t ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
                 {t}
               </button>
             ))}
           </nav>
         </div>
 
-        <div className="flex-1">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex-1 min-w-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             {tab === 'Firm Profile' && (
               <div className="space-y-4 max-w-lg">
                 <h3 className="font-semibold text-gray-900 mb-4">Firm Profile</h3>
@@ -92,8 +98,8 @@ export default function SettingsModule() {
                   ['Firm Name', firmName, setFirmName],
                   ['GSTIN', '29ABCDE1234F1Z5', null],
                   ['PAN', 'ABCDE1234F', null],
-                  ['Email', 'admin@finops360.in', null],
-                  ['Phone', '+91 98765 00000', null],
+                  ['Email', 'kishore.nagilla@gmail.com', null],
+                  ['Phone', '+91 96523 45613', null],
                   ['City', 'Hyderabad', null],
                 ].map(([label, value, setter]) => (
                   <div key={label}>
@@ -115,15 +121,16 @@ export default function SettingsModule() {
 
             {tab === 'Users' && (
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div>
                     <h3 className="font-semibold text-gray-900">User Management</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Manage workspace users and roles (Master Admin only)</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Invite users and assign roles (Master Admin)</p>
                   </div>
                   {canManageUsers && (
                     <button
+                      type="button"
                       onClick={() => setShowInvite(!showInvite)}
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 w-full sm:w-auto"
                     >
                       + Invite User
                     </button>
@@ -137,7 +144,7 @@ export default function SettingsModule() {
                 {showInvite && canManageUsers && (
                   <form onSubmit={handleInvite} className="mb-5 p-4 border border-indigo-100 bg-indigo-50/40 rounded-xl space-y-3">
                     <h4 className="text-sm font-semibold text-gray-800">Invite new user</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input required className="input-field" placeholder="Full name" value={inviteForm.name}
                         onChange={(e) => setInviteForm((p) => ({ ...p, name: e.target.value }))} />
                       <input required type="email" className="input-field" placeholder="Email" value={inviteForm.email}
@@ -170,39 +177,42 @@ export default function SettingsModule() {
                 )}
 
                 <div className="space-y-3">
-                  {(profiles.length ? profiles : []).map(u => (
-                    <div key={u.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
-                        {(u.avatar || u.name || '?').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{u.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                  {(profiles.length ? profiles : []).map((u) => (
+                    <div key={u.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border border-gray-100 rounded-lg">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {(u.avatar || u.name || '?').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{u.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                        </div>
                       </div>
                       {canManageUsers && editingId === u.id ? (
-                        <div className="flex items-center gap-2">
-                          <select className="input-field text-xs py-1" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select className="input-field text-xs py-1 flex-1 min-w-[8rem]" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
                             {ASSIGNABLE_ROLES.map((r) => (
                               <option key={r.value} value={r.value}>{r.label}</option>
                             ))}
                           </select>
-                          <button onClick={() => handleRoleSave(u.id)} className="text-xs text-indigo-600 font-medium">Save</button>
-                          <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
+                          <button type="button" onClick={() => handleRoleSave(u.id)} className="text-xs text-indigo-600 font-medium">Save</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
                         </div>
                       ) : (
-                        <>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                           <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
                             {roleLabel(u.role)}
                           </span>
-                          {canManageUsers && u.id !== currentUser.id && (
+                          {canManageUsers && u.id !== currentUser.id && u.role !== ROLES.SUPER_ADMIN && (
                             <button
+                              type="button"
                               onClick={() => { setEditingId(u.id); setEditRole(u.role); }}
                               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                             >
                               Edit role
                             </button>
                           )}
-                        </>
+                        </div>
                       )}
                     </div>
                   ))}

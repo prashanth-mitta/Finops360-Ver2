@@ -3,7 +3,6 @@ import { ArrowLeft, Check, Plus, X } from 'lucide-react';
 import { TICKET_TYPES, DOC_CHECKLISTS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { useClientsQuery, useTeamQuery, createTicket } from '../../services/finops';
-import { debugLog } from '../../lib/debugLog';
 
 export default function CreateTicket({ onBack, onSuccess }) {
   const { currentUser } = useAuth();
@@ -44,18 +43,6 @@ export default function CreateTicket({ onBack, onSuccess }) {
   const assignees = team.length ? team : [];
   const dataLoading = clientsLoading || teamLoading;
   const canSubmit = !dataLoading && clients.length > 0;
-
-  useEffect(() => {
-    // #region agent log
-    debugLog('CreateTicket.js:state', 'Create ticket form state', {
-      clientsCount: clients.length,
-      dataLoading,
-      canSubmit,
-      clientsError: clientsError || null,
-      tenantId: currentUser?.tenantId || null,
-    }, 'C');
-    // #endregion
-  }, [clients.length, dataLoading, canSubmit, clientsError, currentUser?.tenantId]);
 
   const validate = () => {
     const e = {};
@@ -119,7 +106,7 @@ export default function CreateTicket({ onBack, onSuccess }) {
       </button>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Create new ticket</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Saved to database (unlike Tasks/Document upload which are UI-only for now)</p>
+        <p className="text-sm text-gray-400 mt-0.5">Saved to Supabase Storage and database</p>
       </div>
 
       {dataLoading && (

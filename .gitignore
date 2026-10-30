@@ -21,9 +21,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# supabase
-/supabase/.branches
-/supabase/.temp
+# supabase (local / SQL only — not pushed to GitHub)
+/supabase/
+
+# build archives
+*.zip
 
 # documentation (keep local only)
 *.md

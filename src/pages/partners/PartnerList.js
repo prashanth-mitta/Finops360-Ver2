@@ -7,7 +7,7 @@ const PLAN_META = {
   starter:      { label: 'Starter',      bg: 'bg-slate-100',  text: 'text-slate-600'   },
 };
 
-export default function PartnerList({ onAdd, onView, onLaunch, onLaunchPartner }) {
+export default function PartnerList({ onAdd, onView }) {
   const { tenants, toggleTenantActive } = useTenant();
   const [search, setSearch] = useState('');
 
@@ -88,21 +88,20 @@ export default function PartnerList({ onAdd, onView, onLaunch, onLaunchPartner }
 
                     {/* actions */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => onView(partner)}
-                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => onView(partner)}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                      >
                         View Details
                       </button>
-                      <button onClick={() => toggleTenantActive(partner.tenantId)}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${partner.isActive ? 'text-red-600 hover:bg-red-50 border border-red-200' : 'text-emerald-600 hover:bg-emerald-50 border border-emerald-200'}`}>
+                      <button
+                        type="button"
+                        onClick={() => toggleTenantActive(partner.tenantId)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${partner.isActive ? 'text-red-600 hover:bg-red-50 border border-red-200' : 'text-emerald-600 hover:bg-emerald-50 border border-emerald-200'}`}
+                      >
                         {partner.isActive ? 'Disable' : 'Enable'}
                       </button>
-                      {partner.isActive && (
-                        <button onClick={() => { onLaunch(partner); onLaunchPartner && onLaunchPartner(partner); }}
-                          className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm"
-                          style={{ background: partner.primaryColor }}>
-                          🚀 Launch Portal
-                        </button>
-                      )}
                     </div>
                   </div>
 

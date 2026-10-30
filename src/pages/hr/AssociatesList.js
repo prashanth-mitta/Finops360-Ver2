@@ -223,7 +223,7 @@ function AssociateProfile({ member, onBack }) {
           {[
             { label: 'On-time completion', value: `${onTimeRate}%`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50', sub: 'of tickets filed before due date' },
             { label: 'Total completed', value: done.length, icon: CheckCircle, color: 'text-blue-700', bg: 'bg-blue-50', sub: 'tickets completed overall' },
-            { label: 'Avg turnaround', value: '4.2 days', icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50', sub: 'from assignment to completion' },
+            { label: 'Avg turnaround', value: '—', icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50', sub: 'from assignment to completion' },
           ].map(s => {
             const Icon = s.icon;
             return (
@@ -239,17 +239,20 @@ function AssociateProfile({ member, onBack }) {
           })}
           <div className="bg-white rounded-xl border border-gray-100 p-5 md:col-span-3">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Monthly activity</h3>
-            <div className="flex items-end gap-2 h-24">
-              {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, i) => {
-                const heights = [60, 40, 80, 55, 70, 90];
-                return (
-                  <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full bg-blue-100 rounded-t-md hover:bg-blue-400 transition-colors cursor-pointer" style={{ height: `${heights[i]}%` }} />
-                    <span className="text-xs text-gray-400">{month}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {done.length === 0 && TICKETS.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">No activity data yet.</p>
+            ) : (
+              <div className="flex items-end gap-2 h-24">
+                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map(function(month) {
+                  return (
+                    <div key={month} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full bg-blue-100 rounded-t-md" style={{ height: '8%' }} />
+                      <span className="text-xs text-gray-400">{month}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

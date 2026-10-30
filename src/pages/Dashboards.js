@@ -20,11 +20,13 @@ export function SalesDashboard({ setActivePage }) {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard label="Total Clients" value={CLIENTS.length} />
         <StatCard label="Active" value={CLIENTS.filter(c => c.status === 'Active').length} />
-        <StatCard label="Pipeline" value="₹4.2L" />
+        <StatCard label="Onboarding" value={CLIENTS.filter(c => c.status !== 'Active').length} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-800 mb-3 text-sm">Recent Clients</h3>
-        {CLIENTS.map(c => (
+        {CLIENTS.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No clients yet.</p>
+        ) : CLIENTS.map(c => (
           <div key={c.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
             <div>
               <p className="text-sm font-medium text-gray-800">{c.name}</p>
@@ -48,11 +50,13 @@ export function HRDashboard({ setActivePage }) {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard label="Team Members" value={TEAM.length} />
         <StatCard label="Active" value={TEAM.filter(t => t.status === 'Active').length} />
-        <StatCard label="Departments" value="3" />
+        <StatCard label="Departments" value={new Set(TEAM.map((t) => t.department).filter(Boolean)).size || 0} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-800 mb-3 text-sm">Team</h3>
-        {TEAM.map(m => (
+        {TEAM.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No team members yet.</p>
+        ) : TEAM.map(m => (
           <div key={m.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
               {m.name.split(' ').map(n => n[0]).join('')}
@@ -70,46 +74,58 @@ export function HRDashboard({ setActivePage }) {
 
 export function AssociateDashboard({ setActivePage }) {
   const TICKETS = useTickets();
-  const myTickets = TICKETS.slice(0, 3);
+  const myTickets = TICKETS.filter((t) => t.stage !== 'approved');
+  const dueSoon = myTickets.length;
+  const completed = TICKETS.filter((t) => t.stage === 'approved').length;
   return (
     <div className="p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">My Work</h2>
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard label="My Tickets" value={myTickets.length} />
-        <StatCard label="Due This Week" value="2" />
-        <StatCard label="Completed" value="8" />
+        <StatCard label="In Progress" value={dueSoon} />
+        <StatCard label="Completed" value={completed} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-800 mb-3 text-sm">Active Tickets</h3>
-        {myTickets.map(t => (
-          <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-            <div>
-              <p className="text-sm font-medium text-gray-800">{t.type}</p>
-              <p className="text-xs text-gray-400">{t.client} · Due {t.due}</p>
+        {myTickets.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No active tickets assigned.</p>
+        ) : (
+          myTickets.slice(0, 10).map((t) => (
+            <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <div>
+                <p className="text-sm font-medium text-gray-800">{t.type}</p>
+                <p className="text-xs text-gray-400">{t.client} · Due {t.due}</p>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                {t.priority}
+              </span>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-              {t.priority}
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 export function ClientDashboard({ setActivePage }) {
+  const { currentUser } = useAuth();
   const TICKETS = useTickets();
+  const active = TICKETS.filter((t) => t.stage !== 'approved');
   return (
     <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Welcome back, Rohan!</h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        Welcome back{currentUser?.name ? `, ${currentUser.name.split(' ')[0]}` : ''}!
+      </h2>
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard label="Active Tasks" value="2" />
-        <StatCard label="Documents" value="5" />
-        <StatCard label="Messages" value="3" />
+        <StatCard label="Active Tasks" value={active.length} />
+        <StatCard label="Total Items" value={TICKETS.length} />
+        <StatCard label="Completed" value={TICKETS.filter((t) => t.stage === 'approved').length} />
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="font-semibold text-gray-800 mb-3 text-sm">Active Tasks</h3>
-        {TICKETS.filter(t => t.client === 'Acme Corp').map(t => (
+        <h3 className="font-semibold text-gray-800 mb-3 text-sm">Your Items</h3>
+        {TICKETS.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">Nothing assigned yet.</p>
+        ) : TICKETS.map(t => (
           <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
             <div>
               <p className="text-sm font-medium text-gray-800">{t.type}</p>

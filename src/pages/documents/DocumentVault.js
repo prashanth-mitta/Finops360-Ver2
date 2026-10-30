@@ -1,16 +1,19 @@
 /* eslint-disable */
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useDocumentsQuery, downloadDocument, deleteDocument } from "../../services/finops";
 
-const CATEGORIES = [
-  { id: "all", label: "All Documents", count: 34 },
-  { id: "contracts", label: "Contracts", count: 8 },
-  { id: "tax", label: "Tax & Compliance", count: 12 },
-  { id: "financials", label: "Financials", count: 7 },
-  { id: "identity", label: "KYC / Identity", count: 4 },
-  { id: "invoices", label: "Invoices", count: 3 },
+const CATEGORY_DEFS = [
+  { id: "all", label: "All Documents" },
+  { id: "contracts", label: "Contracts" },
+  { id: "tax", label: "Tax & Compliance" },
+  { id: "financials", label: "Financials" },
+  { id: "identity", label: "KYC / Identity" },
+  { id: "invoices", label: "Invoices" },
 ];
 
 const ROLE_ACCESS = {
+  "Super Admin": ["contracts", "tax", "financials", "identity", "invoices"],
   "Master Admin": ["contracts", "tax", "financials", "identity", "invoices"],
   Sales: ["contracts", "invoices"],
   HR: ["identity"],
@@ -18,114 +21,8 @@ const ROLE_ACCESS = {
   Client: ["contracts", "tax", "invoices"],
 };
 
-const MOCK_DOCS = [
-  {
-    id: 1,
-    name: "Client Services Agreement - Acme Corp",
-    category: "contracts",
-    client: "Acme Corp",
-    size: "245 KB",
-    type: "PDF",
-    status: "signed",
-    uploadedBy: "Priya S.",
-    uploadedAt: "2025-05-28",
-    tags: ["FY2025", "Active"],
-    sharedWith: ["Client", "Associate"],
-  },
-  {
-    id: 2,
-    name: "GST Returns Q4 FY2024-25",
-    category: "tax",
-    client: "Acme Corp",
-    size: "1.2 MB",
-    type: "PDF",
-    status: "approved",
-    uploadedBy: "Rahul M.",
-    uploadedAt: "2025-05-20",
-    tags: ["Q4", "GST", "FY2025"],
-    sharedWith: ["Client"],
-  },
-  {
-    id: 3,
-    name: "Balance Sheet FY2024-25",
-    category: "financials",
-    client: "Redwood Tech",
-    size: "892 KB",
-    type: "XLSX",
-    status: "pending_sign",
-    uploadedBy: "Arjun K.",
-    uploadedAt: "2025-05-15",
-    tags: ["FY2025", "Annual"],
-    sharedWith: ["Client", "Associate"],
-  },
-  {
-    id: 4,
-    name: "PAN Card - Redwood Tech",
-    category: "identity",
-    client: "Redwood Tech",
-    size: "120 KB",
-    type: "JPG",
-    status: "verified",
-    uploadedBy: "HR Team",
-    uploadedAt: "2025-04-10",
-    tags: ["KYC"],
-    sharedWith: ["Master Admin"],
-  },
-  {
-    id: 5,
-    name: "Invoice INV-2025-047",
-    category: "invoices",
-    client: "Lighthouse Ltd",
-    size: "78 KB",
-    type: "PDF",
-    status: "approved",
-    uploadedBy: "Priya S.",
-    uploadedAt: "2025-05-30",
-    tags: ["May 2025"],
-    sharedWith: ["Client"],
-  },
-  {
-    id: 6,
-    name: "TDS Certificate Q3",
-    category: "tax",
-    client: "Lighthouse Ltd",
-    size: "340 KB",
-    type: "PDF",
-    status: "approved",
-    uploadedBy: "Rahul M.",
-    uploadedAt: "2025-05-01",
-    tags: ["TDS", "Q3"],
-    sharedWith: ["Client"],
-  },
-  {
-    id: 7,
-    name: "NDA - Vertex Solutions",
-    category: "contracts",
-    client: "Vertex Solutions",
-    size: "198 KB",
-    type: "PDF",
-    status: "draft",
-    uploadedBy: "Sales Team",
-    uploadedAt: "2025-05-25",
-    tags: ["Draft"],
-    sharedWith: [],
-  },
-  {
-    id: 8,
-    name: "Profit & Loss Statement",
-    category: "financials",
-    client: "Acme Corp",
-    size: "654 KB",
-    type: "XLSX",
-    status: "approved",
-    uploadedBy: "Arjun K.",
-    uploadedAt: "2025-04-22",
-    tags: ["FY2025"],
-    sharedWith: ["Client"],
-  },
-];
-
 const STATUS_CONFIG = {
+  active: { label: "Active", color: "bg-gray-100 text-gray-700" },
   signed: { label: "Signed", color: "bg-green-100 text-green-700" },
   approved: { label: "Approved", color: "bg-blue-100 text-blue-700" },
   pending_sign: { label: "Pending Sign", color: "bg-amber-100 text-amber-700" },
@@ -151,14 +48,16 @@ function FileTypeIcon({ type }) {
 }
 
 export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
+  const { currentUser } = useAuth();
+  const { items: docs, loading, error } = useDocumentsQuery();
   const [activeCategory, setActiveCategory] = useState("all");
-  const [viewMode, setViewMode] = useState("list"); // "list" | "grid"
+  const [viewMode, setViewMode] = useState("list");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("date");
 
-  const allowedCats = ROLE_ACCESS[userRole] || [];
+  const allowedCats = ROLE_ACCESS[userRole] || ROLE_ACCESS["Master Admin"];
 
-  const filtered = MOCK_DOCS.filter((doc) => {
+  const filtered = docs.filter((doc) => {
     const catMatch =
       activeCategory === "all"
         ? allowedCats.includes(doc.category)
@@ -166,7 +65,7 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
     const searchMatch =
       !search ||
       doc.name.toLowerCase().includes(search.toLowerCase()) ||
-      doc.client.toLowerCase().includes(search.toLowerCase());
+      (doc.client || "").toLowerCase().includes(search.toLowerCase());
     return catMatch && searchMatch;
   }).sort((a, b) => {
     if (sortBy === "date") return new Date(b.uploadedAt) - new Date(a.uploadedAt);
@@ -174,9 +73,43 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
     return 0;
   });
 
-  const visibleCategories = CATEGORIES.filter(
-    (c) => c.id === "all" || allowedCats.includes(c.id)
-  );
+  const categoryCounts = docs.reduce((acc, doc) => {
+    if (allowedCats.includes(doc.category)) {
+      acc[doc.category] = (acc[doc.category] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const visibleCategories = CATEGORY_DEFS.filter(
+    (c) => c.id === "all" || allowedCats.includes(c.id),
+  ).map((c) => ({
+    ...c,
+    count: c.id === "all"
+      ? docs.filter((d) => allowedCats.includes(d.category)).length
+      : categoryCounts[c.id] || 0,
+  }));
+
+  const totalBytes = docs.reduce((sum, d) => sum + (d.sizeBytes || 0), 0);
+  const storageGb = (totalBytes / (1024 ** 3)).toFixed(2);
+  const storagePct = Math.min(100, Math.round((totalBytes / (10 * 1024 ** 3)) * 100));
+
+  const handleDownload = async (doc) => {
+    try {
+      const url = await downloadDocument(currentUser.tenantId, doc, currentUser.id, currentUser.name);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      alert(err.message || "Download failed");
+    }
+  };
+
+  const handleDelete = async (doc) => {
+    if (!window.confirm(`Delete "${doc.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteDocument(currentUser.tenantId, doc, currentUser.id, currentUser.name);
+    } catch (err) {
+      alert(err.message || "Delete failed");
+    }
+  };
 
   return (
     <div className="flex gap-5">
@@ -214,16 +147,18 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
         <div className="mt-6 px-3">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>Storage Used</span>
-            <span>3.7 / 10 GB</span>
+            <span>{storageGb} / 10 GB</span>
           </div>
           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full w-[37%] bg-indigo-500 rounded-full" />
+            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${storagePct}%` }} />
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 min-w-0">
+        {loading && <p className="text-sm text-gray-400 mb-4">Loading documents…</p>}
+        {error && <p className="text-sm text-red-600 mb-4">Failed to load documents: {error}</p>}
         {/* Toolbar */}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
@@ -360,7 +295,7 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
                         <span className="text-sm text-gray-500">{doc.size}</span>
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <DocActions doc={doc} userRole={userRole} />
+                        <DocActions doc={doc} userRole={userRole} onDownload={handleDownload} onDelete={handleDelete} />
                       </td>
                     </tr>
                   );
@@ -429,14 +364,15 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
   );
 }
 
-function DocActions({ doc, userRole }) {
+function DocActions({ doc, userRole, onDownload, onDelete }) {
   const [open, setOpen] = useState(false);
-  const canSendSign = ["Master Admin", "Associate"].includes(userRole) && doc.type === "PDF";
-  const canDelete = userRole === "Master Admin";
+  const canSendSign = ["Master Admin", "Super Admin", "Associate"].includes(userRole) && doc.type === "PDF";
+  const canDelete = ["Master Admin", "Super Admin"].includes(userRole);
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
       >
@@ -448,14 +384,7 @@ function DocActions({ doc, userRole }) {
       </button>
       {open && (
         <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg border border-gray-200 shadow-lg py-1">
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            Preview
-          </button>
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          <button type="button" onClick={() => { setOpen(false); onDownload(doc); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -478,7 +407,7 @@ function DocActions({ doc, userRole }) {
           {canDelete && (
             <>
               <div className="border-t border-gray-100 my-1" />
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+              <button type="button" onClick={() => { setOpen(false); onDelete(doc); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>

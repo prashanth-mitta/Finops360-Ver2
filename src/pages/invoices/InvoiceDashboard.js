@@ -38,15 +38,37 @@ export default function InvoiceDashboard(props) {
 
   var recentInvoices = invoices.slice(0, 5);
 
-  // Monthly revenue (last 5 months based on mock data)
-  var monthlyData = [
-    { month: "Jan", amount: 45000 },
-    { month: "Feb", amount: 62000 },
-    { month: "Mar", amount: 54000 },
-    { month: "Apr", amount: 89000 },
-    { month: "May", amount: 71000 },
-  ];
-  var maxAmt = Math.max.apply(null, monthlyData.map(function(d) { return d.amount; }));
+  // Monthly revenue from paid invoices only (no mock data)
+  var monthlyData = (function buildMonthlyRevenue() {
+    var now = new Date();
+    var buckets = [];
+    for (var i = 5; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({
+        month: d.toLocaleDateString("en-IN", { month: "short" }),
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
+        amount: 0,
+      });
+    }
+    invoices
+      .filter(function(inv) { return inv.status === "paid"; })
+      .forEach(function(inv) {
+        var dateStr = inv.paidDate || inv.issueDate;
+        if (!dateStr) return;
+        var paid = new Date(dateStr);
+        var bucket = buckets.find(function(b) {
+          return b.year === paid.getFullYear() && b.monthIndex === paid.getMonth();
+        });
+        if (bucket) {
+          bucket.amount += calc(inv.items, inv.isInterState).total;
+        }
+      });
+    return buckets.map(function(b) { return { month: b.month, amount: b.amount }; });
+  })();
+
+  var maxAmt = Math.max.apply(null, monthlyData.map(function(d) { return d.amount; }).concat([0]));
+  var hasMonthlyRevenue = monthlyData.some(function(d) { return d.amount > 0; });
 
   var statusBreakdown = ["paid","sent","overdue","partial","draft"].map(function(s) {
     return { status: s, count: invoices.filter(function(inv) { return inv.status === s; }).length };
@@ -91,21 +113,25 @@ export default function InvoiceDashboard(props) {
       <div className="grid grid-cols-3 gap-5 mb-5">
         {/* Revenue chart */}
         <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">Monthly Revenue (2025)</h3>
-          <div className="flex items-end gap-3 h-32">
-            {monthlyData.map(function(d) {
-              var pct = Math.round((d.amount / maxAmt) * 100);
-              return (
-                <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
-                  <p className="text-xs font-semibold text-gray-700">
-                    {(d.amount / 1000).toFixed(0)}k
-                  </p>
-                  <div className="w-full rounded-t bg-indigo-500 transition-all" style={{ height: pct + "%" }} />
-                  <p className="text-xs text-gray-400">{d.month}</p>
-                </div>
-              );
-            })}
-          </div>
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">Monthly Revenue</h3>
+          {!hasMonthlyRevenue ? (
+            <p className="text-sm text-gray-400 py-10 text-center">No paid invoices yet — revenue will appear here.</p>
+          ) : (
+            <div className="flex items-end gap-3 h-32">
+              {monthlyData.map(function(d) {
+                var pct = maxAmt > 0 ? Math.round((d.amount / maxAmt) * 100) : 0;
+                return (
+                  <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
+                    <p className="text-xs font-semibold text-gray-700">
+                      {d.amount >= 1000 ? (d.amount / 1000).toFixed(0) + "k" : d.amount.toFixed(0)}
+                    </p>
+                    <div className="w-full rounded-t bg-indigo-500 transition-all" style={{ height: Math.max(pct, 4) + "%" }} />
+                    <p className="text-xs text-gray-400">{d.month}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Status breakdown */}
@@ -149,7 +175,13 @@ export default function InvoiceDashboard(props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {recentInvoices.map(function(inv) {
+            {recentInvoices.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No invoices yet. Create your first invoice to track revenue.
+                </td>
+              </tr>
+            ) : recentInvoices.map(function(inv) {
               var totals = calc(inv.items, inv.isInterState);
               return (
                 <tr key={inv.id} onClick={function() { onSelectInvoice(inv); }}

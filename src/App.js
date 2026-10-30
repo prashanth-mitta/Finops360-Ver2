@@ -1,27 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider, useAuth, ROLES, roleLabel } from './context/AuthContext';
-import { TenantProvider, useTenant }    from './context/TenantContext';
-import Login          from './pages/Login';
-import Sidebar        from './components/layout/Sidebar';
-import Header         from './components/layout/Header';
+import { TenantProvider, useTenant } from './context/TenantContext';
+import { canManagePartners } from './lib/tenant';
+import Login from './pages/Login';
+import Sidebar from './components/layout/Sidebar';
+import Header from './components/layout/Header';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import { SalesDashboard, HRDashboard, AssociateDashboard, ClientDashboard } from './pages/Dashboards';
-import ClientsModule      from './pages/clients/index';
-import TicketsModule      from './pages/tickets/index';
-import HRModule           from './pages/hr/index';
-import ReportsModule      from './pages/reports/ReportsModule';
-import ClientPortal       from './pages/client/index';
-import SettingsModule     from './pages/settings/SettingsModule';
-import DocumentsModule    from './pages/documents/index';
-import InvoicesModule     from './pages/invoices/index';
-import TasksModule        from './pages/tasks/index';
-import NotificationsModule from './pages/notifications/index';
-import ComplianceModule   from './pages/compliance/index';
-import PartnersModule     from './pages/partners/index';
-import PartnerAppShell    from './pages/partners/PartnerAppShell';
 import { isSupabaseConfigured } from './lib/supabaseClient';
+
+const ClientsModule = lazy(() => import('./pages/clients/index'));
+const TicketsModule = lazy(() => import('./pages/tickets/index'));
+const HRModule = lazy(() => import('./pages/hr/index'));
+const ReportsModule = lazy(() => import('./pages/reports/ReportsModule'));
+const ClientPortal = lazy(() => import('./pages/client/index'));
+const SettingsModule = lazy(() => import('./pages/settings/SettingsModule'));
+const DocumentsModule = lazy(() => import('./pages/documents/index'));
+const InvoicesModule = lazy(() => import('./pages/invoices/index'));
+const TasksModule = lazy(() => import('./pages/tasks/index'));
+const NotificationsModule = lazy(() => import('./pages/notifications/index'));
+const ComplianceModule = lazy(() => import('./pages/compliance/index'));
+const PartnersModule = lazy(() => import('./pages/partners/index'));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-sm text-slate-400">Loading module…</div>
+    </div>
+  );
+}
 
 function ComingSoon({ page }) {
   return (
@@ -36,18 +45,26 @@ function ComingSoon({ page }) {
 }
 
 const DASHBOARDS = {
+  [ROLES.SUPER_ADMIN]: AdminDashboard,
   [ROLES.MASTER_ADMIN]: AdminDashboard,
-  [ROLES.SALES]:        SalesDashboard,
-  [ROLES.HR]:           HRDashboard,
-  [ROLES.ASSOCIATE]:    AssociateDashboard,
-  [ROLES.CLIENT]:       ClientDashboard,
+  [ROLES.SALES]: SalesDashboard,
+  [ROLES.HR]: HRDashboard,
+  [ROLES.ASSOCIATE]: AssociateDashboard,
+  [ROLES.CLIENT]: ClientDashboard,
 };
 
 function AppShell() {
-  const { currentUser, loading }              = useAuth();
-  const [activePage, setActivePage]           = useState('dashboard');
-  const [mobileMenuOpen, setMobileMenuOpen]   = useState(false);
-  const [launchedPartner, setLaunchedPartner] = useState(null);
+  const { currentUser, loading } = useAuth();
+  const { activeTenant } = useTenant();
+  const [activePage, setActivePage] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const showPartners = canManagePartners(currentUser, activeTenant);
+
+  useEffect(() => {
+    if (activePage === 'partners' && !showPartners) {
+      setActivePage('dashboard');
+    }
+  }, [activePage, showPartners]);
 
   if (loading) {
     return (
@@ -59,67 +76,76 @@ function AppShell() {
 
   if (!currentUser) return <Login />;
 
-  // ── Partner portal launched — render full isolated app ───────────────────
-  if (launchedPartner) {
-    return (
-      <PartnerAppShell
-        partner={launchedPartner}
-        onExit={() => setLaunchedPartner(null)}
-      />
-    );
-  }
-
-  const DashboardComponent = DASHBOARDS[currentUser.role];
+  const DashboardComponent = DASHBOARDS[currentUser.role] || AdminDashboard;
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard':         return <DashboardComponent setActivePage={setActivePage} />;
+      case 'dashboard':
+        return <DashboardComponent setActivePage={setActivePage} />;
       case 'clients':
-      case 'onboard-client':    return <ClientsModule />;
-      case 'tickets':           return <TicketsModule />;
+      case 'onboard-client':
+        return <ClientsModule />;
+      case 'tickets':
+        return <TicketsModule />;
       case 'associates':
       case 'hr-team':
       case 'sales-team':
-      case 'onboard-associate': return <HRModule />;
+      case 'onboard-associate':
+        return <HRModule />;
       case 'reports':
-      case 'performance':       return <ReportsModule />;
+      case 'performance':
+        return <ReportsModule />;
       case 'documents':
         return currentUser.role === ROLES.CLIENT
           ? <ClientPortal page="documents" />
           : <DocumentsModule userRole={roleLabel(currentUser.role)} />;
-      case 'invoices':          return <InvoicesModule userRole={roleLabel(currentUser.role)} />;
+      case 'invoices':
+        return <InvoicesModule userRole={roleLabel(currentUser.role)} />;
       case 'tasks':
       case 'work':
-      case 'my-tasks':          return <TasksModule userRole={currentUser.role} />;
-      case 'notifications':     return <NotificationsModule userRole={currentUser.role} setActivePage={setActivePage} />;
-      case 'compliance':        return <ComplianceModule userRole={currentUser.role} />;
-      case 'partners':          return <PartnersModule onLaunchPartner={p => setLaunchedPartner(p)} />;
-      case 'messages':          return <ClientPortal page="messages" />;
-      case 'history':           return <ClientPortal page="history" />;
-      case 'settings':          return <SettingsModule />;
-      default:                  return <ComingSoon page={activePage} />;
+      case 'my-tasks':
+        return <TasksModule userRole={currentUser.role} />;
+      case 'notifications':
+        return <NotificationsModule userRole={currentUser.role} setActivePage={setActivePage} />;
+      case 'compliance':
+        return <ComplianceModule userRole={currentUser.role} />;
+      case 'partners':
+        if (!showPartners) return <ComingSoon page="dashboard" />;
+        return <PartnersModule />;
+      case 'messages':
+        return <ClientPortal page="messages" />;
+      case 'history':
+        return <ClientPortal page="history" />;
+      case 'settings':
+        return <SettingsModule />;
+      default:
+        return <ComingSoon page={activePage} />;
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen min-h-[100dvh] bg-slate-50">
       <Sidebar
         activePage={activePage}
         setActivePage={setActivePage}
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
       />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-0">
         <Header
           activePage={activePage}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
         {!isSupabaseConfigured && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-800">
-            Demo mode — Supabase not configured. Creates will not save. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY (Vercel: Project Settings → Environment Variables), then redeploy.
+            Demo mode — Supabase not configured. Sign-in requires a live database connection.
           </div>
         )}
-        <main className="flex-1 overflow-auto">{renderPage()}</main>
+        <main className="flex-1 overflow-auto">
+          <Suspense fallback={<PageLoader />}>
+            {renderPage()}
+          </Suspense>
+        </main>
       </div>
     </div>
   );

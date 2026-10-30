@@ -72,7 +72,7 @@ export default function DocumentsPage({ userRole = "Master Admin" }) {
 
       {/* Modals */}
       {showUpload && (
-        <DocumentUploadModal onClose={() => setShowUpload(false)} />
+        <DocumentUploadModal onClose={() => setShowUpload(false)} onUploaded={() => setShowUpload(false)} />
       )}
       {selectedDoc && (
         <DocumentViewer doc={selectedDoc} onClose={() => setSelectedDoc(null)} userRole={userRole} />

@@ -78,7 +78,7 @@ export function MaskedField({ value, label }) {
   const handleReveal = () => { setOtpSent(true); };
   const handleVerify = () => {
     if (otp === '1234') { setRevealed(true); setOtpSent(false); setTimeout(() => setRevealed(false), 60000); }
-    else alert('Invalid OTP. Use 1234 for demo.');
+    else alert('Invalid OTP. Please try again.');
   };
 
   return (
@@ -91,7 +91,7 @@ export function MaskedField({ value, label }) {
       </div>
       {otpSent && !revealed && (
         <div className="mt-2 flex items-center gap-2">
-          <input type="text" placeholder="Enter OTP (demo: 1234)" className="input-field w-40 text-xs" value={otp} onChange={e => setOtp(e.target.value)} maxLength={4} />
+          <input type="text" placeholder="Enter OTP" className="input-field w-40 text-xs" value={otp} onChange={e => setOtp(e.target.value)} maxLength={4} />
           <button onClick={handleVerify} className="btn-primary text-xs px-3 py-1.5">Verify</button>
         </div>
       )}

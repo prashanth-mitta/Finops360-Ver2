@@ -9,8 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured, getSupabaseCredentials } from '../lib/supabaseClient';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { queryClient } from '../lib/queryClient';
-import { useAuth } from '../context/AuthContext';
-import { debugLog } from '../lib/debugLog';
+import { useAuth, ROLES } from '../context/AuthContext';
 
 // ── Fallback mock data (used only when Supabase is not configured) ───────────
 import { CLIENTS, TICKETS, TEAM, NOTIFICATIONS } from '../data/mockData';
@@ -111,7 +110,7 @@ async function load(fallback, queryFn) {
     console.error('[FinOps360] query failed:', error.message);
     throw new Error(error.message);
   }
-  return data ?? fallback;
+  return data ?? (isSupabaseConfigured ? [] : fallback);
 }
 
 function useList(key, fallback, queryFn) {
@@ -123,7 +122,6 @@ function useList(key, fallback, queryFn) {
     queryFn: () => load(fallback, queryFn),
     enabled: live || !isSupabaseConfigured,
     initialData: isSupabaseConfigured ? undefined : fallback,
-    refetchOnMount: 'always',
     retry: 2,
   });
 
@@ -289,6 +287,164 @@ export function useHeaderNotifications() {
   });
 }
 
+const DOCUMENTS_BUCKET = 'documents';
+
+export function formatFileSize(bytes) {
+  if (bytes == null || Number.isNaN(bytes)) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const mapDocument = (r) => ({
+  id: r.id,
+  name: r.name,
+  category: r.category,
+  client: r.client_name,
+  clientId: r.client_id,
+  size: formatFileSize(r.size_bytes),
+  sizeBytes: r.size_bytes,
+  type: (r.type || 'FILE').toUpperCase(),
+  status: r.status || 'active',
+  uploadedBy: r.uploaded_by,
+  uploadedAt: r.created_at ? String(r.created_at).slice(0, 10) : '',
+  createdAt: r.created_at,
+  tags: r.tags || [],
+  filePath: r.file_path,
+  sharedWith: [],
+});
+
+export function useDocumentsQuery() {
+  const result = useList(['documents'], [], async () => {
+    const r = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+    return { data: (r.data || []).map(mapDocument), error: r.error };
+  });
+  return { ...result, items: result.data ?? [] };
+}
+
+export function useDocumentActivityQuery(documentId) {
+  const { currentUser } = useAuth();
+  const live = isSupabaseConfigured && Boolean(currentUser) && Boolean(documentId);
+  const query = useQuery({
+    queryKey: ['document_activity', currentUser?.tenantId, documentId],
+    queryFn: async () => {
+      const r = await supabase
+        .from('document_activity')
+        .select('*')
+        .eq('document_id', documentId)
+        .order('at', { ascending: false })
+        .limit(20);
+      if (r.error) throw new Error(r.error.message);
+      return (r.data || []).map((a) => ({
+        id: a.id,
+        action: a.action,
+        user: a.user_name || 'Unknown',
+        time: a.at,
+      }));
+    },
+    enabled: live,
+  });
+  return { items: query.data ?? [], loading: live && query.isLoading };
+}
+
+function sanitizeFileName(name) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function fileExtension(name) {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts.pop().toUpperCase() : 'FILE';
+}
+
+async function logDocumentActivity(tenantId, { documentId, userId, userName, action }) {
+  if (!isSupabaseConfigured) return;
+  await supabase.from('document_activity').insert({
+    tenant_id: tenantId,
+    document_id: documentId,
+    user_id: userId || null,
+    user_name: userName || null,
+    action,
+    at: new Date().toISOString(),
+  });
+}
+
+export async function uploadDocument(tenantId, payload) {
+  if (!tenantId) throw new Error('Missing tenant.');
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
+  const { file, clientId, clientName, category, tags, uploadedBy, userId } = payload;
+  const filePath = `${tenantId}/${category}/${Date.now()}_${sanitizeFileName(file.name)}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(filePath, file, { upsert: false, contentType: file.type || undefined });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const row = {
+    tenant_id: tenantId,
+    name: file.name,
+    type: fileExtension(file.name),
+    category,
+    status: 'active',
+    client_id: clientId || null,
+    client_name: clientName || null,
+    uploaded_by: uploadedBy,
+    file_path: filePath,
+    size_bytes: file.size,
+    tags: tags || [],
+  };
+
+  const { data, error } = await supabase.from('documents').insert(row).select('*').single();
+  if (error) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([filePath]);
+    throw new Error(error.message);
+  }
+
+  await logDocumentActivity(tenantId, {
+    documentId: data.id,
+    userId,
+    userName: uploadedBy,
+    action: 'upload',
+  });
+  await refetchKeys(tenantId, 'documents');
+  return mapDocument(data);
+}
+
+export async function getDocumentSignedUrl(filePath, expiresIn = 3600) {
+  if (!isSupabaseConfigured || !filePath) throw new Error('File not available.');
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(filePath, expiresIn);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+export async function downloadDocument(tenantId, doc, userId, userName) {
+  const url = await getDocumentSignedUrl(doc.filePath);
+  await logDocumentActivity(tenantId, {
+    documentId: doc.id,
+    userId,
+    userName,
+    action: 'download',
+  });
+  return url;
+}
+
+export async function deleteDocument(tenantId, doc, userId, userName) {
+  if (!isSupabaseConfigured || !doc?.id) return;
+  if (doc.filePath) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.filePath]);
+  }
+  const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+  if (error) throw new Error(error.message);
+  await logDocumentActivity(tenantId, {
+    documentId: doc.id,
+    userId,
+    userName,
+    action: 'delete',
+  });
+  await refetchKeys(tenantId, 'documents');
+}
+
 async function refetchKeys(tenantId, ...keys) {
   await Promise.all(
     keys.map((key) =>
@@ -359,15 +515,6 @@ export async function createClient(tenantId, payload, services = []) {
 export async function createTicket(tenantId, payload) {
   if (!tenantId) throw new Error('Missing tenant. Log out and sign in again.');
 
-  // #region agent log
-  debugLog('finops.js:createTicket', 'createTicket called', {
-    tenantId,
-    isSupabaseConfigured,
-    clientId: payload.clientId || null,
-    type: payload.type || null,
-  }, 'D');
-  // #endregion
-
   const today = new Date().toISOString().slice(0, 10);
   const title = payload.title || [payload.type, payload.period, payload.ay].filter(Boolean).join(' · ');
 
@@ -399,13 +546,6 @@ export async function createTicket(tenantId, payload) {
   };
 
   const { data, error } = await supabase.from('tickets').insert(row).select('*').single();
-  // #region agent log
-  debugLog('finops.js:createTicket:result', 'createTicket insert result', {
-    ok: !error,
-    errorMessage: error?.message || null,
-    ticketCode: data?.code || null,
-  }, 'D');
-  // #endregion
   if (error) throw new Error(error.message);
 
   const mapped = mapTicket(data);
@@ -466,6 +606,68 @@ export async function updateProfile(id, updates, tenantId) {
   const { error } = await supabase.from('profiles').update(row).eq('id', id);
   if (error) throw new Error(error.message);
   await refetchKeys(tenantId, 'profiles');
+}
+
+async function nextPartnerTenantId() {
+  const { data } = await supabase
+    .from('tenants')
+    .select('id')
+    .like('id', 'p%')
+    .order('id', { ascending: false })
+    .limit(1);
+  let next = 1;
+  if (data?.[0]?.id) {
+    const n = parseInt(String(data[0].id).replace(/^p/i, ''), 10);
+    if (!Number.isNaN(n)) next = n + 1;
+  }
+  return `p${String(next).padStart(3, '0')}`;
+}
+
+/** Create a partner firm + master_admin login (FinOps platform admins only). */
+export async function createPartner(form) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured on this deployment.');
+
+  const tenantId = await nextPartnerTenantId();
+  const accent = form.accentColor || form.primaryColor || '#6366f1';
+
+  const { data: row, error } = await supabase.from('tenants').insert({
+    id: tenantId,
+    firm_name: form.firmName,
+    tagline: form.tagline || null,
+    logo_text: form.logoText,
+    primary_color: form.primaryColor || '#6366f1',
+    accent_color: accent,
+    email: form.email,
+    phone: form.phone || null,
+    address: form.address || null,
+    gstin: form.gstin,
+    is_active: true,
+    is_master: false,
+    plan: form.plan || 'professional',
+  }).select().single();
+
+  if (error) throw new Error(error.message);
+
+  await supabase.from('firm_settings').upsert({
+    tenant_id: tenantId,
+    name: form.firmName,
+    gstin: form.gstin,
+    email: form.email,
+    phone: form.phone || null,
+    address: form.address || null,
+  });
+
+  const inviteResult = await inviteUser(tenantId, {
+    email: form.email,
+    password: form.adminPassword,
+    name: form.adminName,
+    role: ROLES.MASTER_ADMIN,
+  });
+
+  await queryClient.invalidateQueries({ queryKey: ['tenants'] });
+  await queryClient.invalidateQueries({ queryKey: ['partner_stats'] });
+
+  return { tenantId, tenant: row, ...inviteResult };
 }
 
 export async function inviteUser(tenantId, { email, password, name, role }) {
