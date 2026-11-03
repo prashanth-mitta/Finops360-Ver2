@@ -1,7 +1,6 @@
 /**
  * Injects Supabase config into index.html (inline) and public/env-config.js
- * before CRA build. Inline script survives Vercel SPA rewrites that were
- * incorrectly serving index.html for /env-config.js.
+ * before CRA build. Inline script avoids hosts that serve index.html for /env-config.js.
  */
 const fs = require('fs');
 const path = require('path');

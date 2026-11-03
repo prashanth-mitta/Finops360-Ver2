@@ -7,7 +7,7 @@ import InvoiceDetail from "./InvoiceDetail";
 import { useInvoices } from "../../services/finops";
 
 export default function InvoicesModule(props) {
-  var userRole = props.userRole || "Master Admin";
+  var userRole = props.userRole || "Admin";
   var liveInvoices = useInvoices();
   var [tab, setTab] = React.useState("dashboard");
   var [selectedInvoice, setSelectedInvoice] = React.useState(null);

@@ -239,7 +239,7 @@ export default function OnboardAssociate({ onBack, onSuccess }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Reporting manager</label>
                 <select className="input-field" value={form.reportingManager} onChange={e => set('reportingManager', e.target.value)}>
                   <option value="">Select manager</option>
-                  <option value="u1">Rajesh Sharma (Master Admin)</option>
+                  <option value="u1">Rajesh Sharma (Admin)</option>
                 </select>
               </div>
             </div>
@@ -263,7 +263,7 @@ export default function OnboardAssociate({ onBack, onSuccess }) {
                   { value: 'associate', label: 'Associate', desc: 'Works on tickets, communicates with clients' },
                   { value: 'hr', label: 'HR', desc: 'Manages team onboarding and performance' },
                   { value: 'sales', label: 'Sales', desc: 'Onboards clients, manages client portfolio' },
-                  { value: 'master_admin', label: 'Master Admin', desc: 'Full access to everything' },
+                  { value: 'master_admin', label: 'Admin', desc: 'Full access to everything' },
                 ].map(opt => (
                   <button key={opt.value} onClick={() => set('role', opt.value)}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${form.role === opt.value ? 'border-blue-700 bg-blue-50' : 'border-gray-100 hover:border-gray-200'}`}>

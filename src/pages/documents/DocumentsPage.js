@@ -12,7 +12,7 @@ const TABS = [
   { id: "audit", label: "Audit Trail", icon: "history" },
 ];
 
-export default function DocumentsPage({ userRole = "Master Admin" }) {
+export default function DocumentsPage({ userRole = "Admin" }) {
   const [activeTab, setActiveTab] = useState("vault");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);

@@ -140,7 +140,7 @@ export default function AuditTrail({ userRole }) {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
 
-  const canExport = ["Master Admin"].includes(userRole);
+  const canExport = ["Admin", "Super Admin"].includes(userRole);
 
   const filtered = MOCK_AUDIT.filter((a) => {
     const actionMatch = actionFilter === "all" || a.action === actionFilter;
@@ -217,7 +217,7 @@ export default function AuditTrail({ userRole }) {
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
           <option value="all">All Roles</option>
-          {["Master Admin", "Sales", "HR", "Associate", "Client"].map((r) => (
+          {["Admin", "Super Admin", "Sales", "HR", "Associate", "Client"].map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}
         </select>

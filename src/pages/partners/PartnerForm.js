@@ -205,7 +205,7 @@ export default function PartnerForm({ partner, onSave, onClose, saving, saveErro
                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-2">
                   <p className="text-xs font-semibold text-indigo-800 mb-1">Partner admin account</p>
                   <p className="text-xs text-indigo-600">
-                    Creates a <strong>Master Admin</strong> for <strong>{form.firmName}</strong>.
+                    Creates an <strong>Admin</strong> login for <strong>{form.firmName}</strong>.
                     They use the <strong>same login page</strong> as FinOps 360 and get full app access
                     for their firm (Clients, Tickets, HR, Documents, Settings). The Partners module is
                     not shown to them.

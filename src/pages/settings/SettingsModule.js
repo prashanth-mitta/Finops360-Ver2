@@ -7,15 +7,19 @@ import { isSupabaseConfigured } from '../../lib/supabaseClient';
 
 const TABS = ['Firm Profile', 'Users', 'Notifications', 'Security', 'Billing'];
 const ASSIGNABLE_ROLES = [
-  { value: ROLES.MASTER_ADMIN, label: 'Master Admin' },
-  { value: ROLES.SALES, label: 'Sales' },
-  { value: ROLES.HR, label: 'HR' },
-  { value: ROLES.ASSOCIATE, label: 'Associate' },
-  { value: ROLES.CLIENT, label: 'Client' },
+  { value: ROLES.MASTER_ADMIN, label: roleLabel(ROLES.MASTER_ADMIN) },
+  { value: ROLES.SALES, label: roleLabel(ROLES.SALES) },
+  { value: ROLES.HR, label: roleLabel(ROLES.HR) },
+  { value: ROLES.ASSOCIATE, label: roleLabel(ROLES.ASSOCIATE) },
+  { value: ROLES.CLIENT, label: roleLabel(ROLES.CLIENT) },
 ];
 
 export default function SettingsModule() {
-  const { currentUser } = useAuth();
+  const { currentUser, updatePassword, requestPasswordReset, error: authError, setError } = useAuth();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityMessage, setSecurityMessage] = useState('');
+  const [securitySaving, setSecuritySaving] = useState(false);
   const canManageUsers = hasPermission(currentUser?.role, 'canManageUsers');
   const { items: profiles, loading, error } = useProfilesQuery();
 
@@ -36,6 +40,44 @@ export default function SettingsModule() {
   const [saveError, setSaveError] = useState('');
 
   const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    setSecurityMessage('');
+    setError('');
+    if (newPassword.length < 6) {
+      setSecurityMessage('Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecurityMessage('Passwords do not match.');
+      return;
+    }
+    setSecuritySaving(true);
+    const ok = await updatePassword(newPassword);
+    if (ok) {
+      setSecurityMessage('Password updated successfully.');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else {
+      setSecurityMessage(authError || 'Could not update password.');
+    }
+    setSecuritySaving(false);
+  };
+
+  const handleEmailResetLink = async () => {
+    setSecurityMessage('');
+    setError('');
+    if (!currentUser?.email) return;
+    setSecuritySaving(true);
+    const ok = await requestPasswordReset(currentUser.email);
+    setSecurityMessage(
+      ok
+        ? `Reset link sent to ${currentUser.email}. Check your inbox (and spam).`
+        : authError || 'Could not send reset email.',
+    );
+    setSecuritySaving(false);
+  };
 
   const handleRoleSave = async (profileId) => {
     setSaveError('');
@@ -60,7 +102,6 @@ export default function SettingsModule() {
           : `User ${inviteForm.name} created successfully.`,
       );
       setInviteForm({ name: '', email: '', password: '', role: ROLES.ASSOCIATE });
-      setShowInvite(false);
     } catch (err) {
       setInviteError(err.message || 'Failed to invite user');
     } finally {
@@ -124,7 +165,7 @@ export default function SettingsModule() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div>
                     <h3 className="font-semibold text-gray-900">User Management</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Invite users and assign roles (Master Admin)</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Invite users and assign roles (Admin & Super Admin)</p>
                   </div>
                   {canManageUsers && (
                     <button
@@ -138,7 +179,7 @@ export default function SettingsModule() {
                 </div>
 
                 {!canManageUsers && (
-                  <p className="text-sm text-gray-500 mb-4">Only Master Admin can manage users.</p>
+                  <p className="text-sm text-gray-500 mb-4">Only Admin or Super Admin can manage users.</p>
                 )}
 
                 {showInvite && canManageUsers && (
@@ -237,19 +278,61 @@ export default function SettingsModule() {
             )}
 
             {tab === 'Security' && (
-              <div className="max-w-md">
-                <h3 className="font-semibold text-gray-900 mb-4">Security Settings</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Current Password</label>
-                    <input type="password" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">New Password</label>
-                    <input type="password" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                  </div>
-                  <button className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">Update Password</button>
+              <div className="max-w-md space-y-6">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Change password</h3>
+                  <p className="text-xs text-gray-500 mb-4">Update while signed in, or use email reset below.</p>
+                  <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">New password</label>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={6}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirm new password</label>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={6}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={securitySaving}
+                      className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                      {securitySaving ? 'Saving…' : 'Update password'}
+                    </button>
+                  </form>
                 </div>
+                <div className="border-t border-gray-100 pt-5">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-1">Email password reset</h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Send a link to <span className="font-medium text-gray-700">{currentUser?.email}</span> (works with Gmail, Outlook, and other providers).
+                  </p>
+                  <button
+                    type="button"
+                    disabled={securitySaving || !currentUser?.email}
+                    onClick={handleEmailResetLink}
+                    className="border border-indigo-200 text-indigo-700 px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 disabled:opacity-60"
+                  >
+                    Send reset link to my email
+                  </button>
+                </div>
+                {securityMessage && (
+                  <p className={`text-sm px-3 py-2 rounded-lg ${securityMessage.includes('success') || securityMessage.includes('sent') ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                    {securityMessage}
+                  </p>
+                )}
               </div>
             )}
 

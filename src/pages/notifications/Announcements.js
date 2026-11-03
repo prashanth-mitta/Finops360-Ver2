@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
+import { roleLabel } from '../../context/AuthContext';
 import { ROLES_ALL } from './notificationData';
 
 const PRIORITY_META = {
   normal: { label: 'Normal', bg: 'bg-slate-100',   text: 'text-slate-600'   },
   high:   { label: 'High',   bg: 'bg-orange-50',   text: 'text-orange-700'  },
   urgent: { label: 'Urgent', bg: 'bg-red-50',      text: 'text-red-700'     },
-};
-
-const ROLE_LABELS = {
-  master_admin: 'Master Admin', sales: 'Sales', hr: 'HR', associate: 'Associate', client: 'Client',
 };
 
 function AnnouncementCard({ ann, onDelete }) {
@@ -48,7 +45,7 @@ function AnnouncementCard({ ann, onDelete }) {
                   {isAllRoles
                     ? <span className="text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium">Everyone</span>
                     : ann.targetRoles.map(r => (
-                        <span key={r} className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium">{ROLE_LABELS[r]}</span>
+                        <span key={r} className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium">{roleLabel(r)}</span>
                       ))
                   }
                 </div>
@@ -129,7 +126,7 @@ function AnnouncementForm({ onSave, onClose }) {
                 {ROLES_ALL.map(r => (
                   <button key={r} type="button" onClick={() => toggleRole(r)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${form.targetRoles.includes(r) ? 'bg-blue-50 text-blue-700 border-blue-400' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                    {ROLE_LABELS[r]}
+                    {roleLabel(r)}
                   </button>
                 ))}
               </div>
@@ -148,7 +145,7 @@ function AnnouncementForm({ onSave, onClose }) {
 
 export default function Announcements({ announcements, setAnnouncements, userRole }) {
   const [showForm, setShowForm] = useState(false);
-  const isAdmin = userRole === 'master_admin';
+  const isAdmin = userRole === 'master_admin' || userRole === 'super_admin';
 
   function addAnnouncement(data) {
     setAnnouncements(prev => [data, ...prev]);

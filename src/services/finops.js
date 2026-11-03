@@ -687,9 +687,19 @@ export async function inviteUser(tenantId, { email, password, name, role }) {
       data: { name, role, tenant_id: tenantId, avatar },
     },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const msg = error.message || 'Failed to invite user';
+    if (/already registered|already exists/i.test(msg)) {
+      throw new Error('That email is already registered. Use a different email or reset the user in Supabase Auth.');
+    }
+    if (/signups?.*disabled|not allowed/i.test(msg)) {
+      throw new Error('Sign-up is disabled in Supabase. Enable Auth sign-ups or use the Supabase dashboard to add users.');
+    }
+    throw new Error(msg);
+  }
 
   await refetchKeys(tenantId, 'profiles');
+  await queryClient.invalidateQueries({ queryKey: ['profiles'] });
   return {
     ...data,
     emailConfirmationRequired: Boolean(data.user && !data.session),

@@ -26,7 +26,7 @@ export default function DocumentViewer({ doc, onClose, userRole }) {
   const [tab, setTab] = useState("details");
   const [downloading, setDownloading] = useState(false);
   const statusCfg = STATUS_CONFIG[doc.status] || STATUS_CONFIG.active;
-  const canSendSign = ["Master Admin", "Super Admin", "Associate"].includes(userRole) && doc.type === "PDF";
+  const canSendSign = ["Admin", "Super Admin", "Associate"].includes(userRole) && doc.type === "PDF";
 
   const handleDownload = async () => {
     setDownloading(true);

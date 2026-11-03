@@ -44,7 +44,7 @@ export default function InvoiceDetail(props) {
   var client = INVOICE_CLIENTS.find(function(c) { return c.id === invoice.clientId; });
   var totals = calc(invoice.items, invoice.isInterState);
   var canEdit = userRole !== "Client";
-  var canMarkPaid = ["Master Admin", "Associate"].includes(userRole);
+  var canMarkPaid = ["Admin", "Super Admin", "Associate"].includes(userRole);
 
   var amountInWords = numberToWords(Math.round(totals.total)) + " Rupees Only";
 

@@ -14,7 +14,7 @@ const CATEGORY_DEFS = [
 
 const ROLE_ACCESS = {
   "Super Admin": ["contracts", "tax", "financials", "identity", "invoices"],
-  "Master Admin": ["contracts", "tax", "financials", "identity", "invoices"],
+  Admin: ["contracts", "tax", "financials", "identity", "invoices"],
   Sales: ["contracts", "invoices"],
   HR: ["identity"],
   Associate: ["contracts", "tax", "financials", "invoices"],
@@ -55,7 +55,7 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("date");
 
-  const allowedCats = ROLE_ACCESS[userRole] || ROLE_ACCESS["Master Admin"];
+  const allowedCats = ROLE_ACCESS[userRole] || ROLE_ACCESS.Admin;
 
   const filtered = docs.filter((doc) => {
     const catMatch =
@@ -366,8 +366,8 @@ export default function DocumentVault({ userRole, onSelectDoc, onUpload }) {
 
 function DocActions({ doc, userRole, onDownload, onDelete }) {
   const [open, setOpen] = useState(false);
-  const canSendSign = ["Master Admin", "Super Admin", "Associate"].includes(userRole) && doc.type === "PDF";
-  const canDelete = ["Master Admin", "Super Admin"].includes(userRole);
+  const canSendSign = ["Admin", "Super Admin", "Associate"].includes(userRole) && doc.type === "PDF";
+  const canDelete = ["Admin", "Super Admin"].includes(userRole);
 
   return (
     <div className="relative">

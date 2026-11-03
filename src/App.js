@@ -5,6 +5,7 @@ import { AuthProvider, useAuth, ROLES, roleLabel } from './context/AuthContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { canManagePartners } from './lib/tenant';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -54,7 +55,7 @@ const DASHBOARDS = {
 };
 
 function AppShell() {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, passwordRecovery } = useAuth();
   const { activeTenant } = useTenant();
   const [activePage, setActivePage] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -74,6 +75,7 @@ function AppShell() {
     );
   }
 
+  if (passwordRecovery) return <ResetPassword />;
   if (!currentUser) return <Login />;
 
   const DashboardComponent = DASHBOARDS[currentUser.role] || AdminDashboard;

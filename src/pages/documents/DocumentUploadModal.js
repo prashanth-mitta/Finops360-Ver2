@@ -11,7 +11,7 @@ const CATEGORIES = [
   { value: "invoices", label: "Invoices" },
 ];
 
-const ROLE_OPTIONS = ["Master Admin", "Sales", "HR", "Associate", "Client"];
+const ROLE_OPTIONS = ["Admin", "Super Admin", "Sales", "HR", "Associate", "Client"];
 
 const ACCEPTED_TYPES = ".pdf,.xlsx,.docx,.jpg,.jpeg,.png,.csv";
 const MAX_SIZE_MB = 25;

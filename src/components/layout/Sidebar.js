@@ -119,9 +119,7 @@ export default function Sidebar({ activePage, setActivePage, mobileOpen, onMobil
             <div className="min-w-0">
               <p className="text-white text-xs font-medium truncate">{currentUser?.name}</p>
               <p className="text-slate-400 text-xs truncate">
-                {branded && currentUser?.role === ROLES.MASTER_ADMIN
-                  ? 'Firm Admin'
-                  : roleLabel(currentUser?.role)}
+                {roleLabel(currentUser?.role)}
               </p>
             </div>
           </div>

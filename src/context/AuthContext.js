@@ -15,7 +15,7 @@ export const ROLES = {
 
 export const ROLE_LABELS = {
   super_admin: 'Super Admin',
-  master_admin: 'Master Admin',
+  master_admin: 'Admin',
   sales: 'Sales',
   hr: 'HR',
   associate: 'Associate',
@@ -40,10 +40,31 @@ export function resolveLoginEmail(identifier) {
   return raw;
 }
 
+/** Email for password reset — must be a real inbox (not mobile alias). */
+export function resolvePasswordResetEmail(identifier) {
+  const email = resolveLoginEmail(identifier);
+  if (!email) return { error: 'Enter your email address.' };
+  if (email.endsWith('@phone.finops360.in')) {
+    return {
+      error:
+        'Password reset is sent to your registered email (Gmail, Outlook, etc.). If you only sign in with mobile, use the email on your account or contact an admin.',
+    };
+  }
+  return { email };
+}
+
+function getPasswordResetRedirectUrl() {
+  if (typeof window === 'undefined') return undefined;
+  const base = window.location.origin + (window.location.pathname || '/');
+  return base.split('#')[0];
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState('');
 
   async function hydrateUser(authUser) {
     if (!authUser) return null;
@@ -70,14 +91,20 @@ export function AuthProvider({ children }) {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return;
+      if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+        setPasswordRecovery(true);
+      }
       if (data.session?.user) {
         setCurrentUser(await hydrateUser(data.session.user));
       }
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+      }
       setCurrentUser(session?.user ? await hydrateUser(session.user) : null);
     });
 
@@ -107,10 +134,68 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     setCurrentUser(null);
+    setPasswordRecovery(false);
   };
 
+  const requestPasswordReset = async (identifier) => {
+    setError('');
+    setResetEmailSent('');
+    if (!isSupabaseConfigured) {
+      setError('Database not connected. Configure Supabase to reset passwords.');
+      return false;
+    }
+    const resolved = resolvePasswordResetEmail(identifier);
+    if (resolved.error) {
+      setError(resolved.error);
+      return false;
+    }
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resolved.email, {
+      redirectTo: getPasswordResetRedirectUrl(),
+    });
+    if (err) {
+      setError(err.message || 'Could not send reset email.');
+      return false;
+    }
+    setResetEmailSent(resolved.email);
+    return true;
+  };
+
+  const updatePassword = async (newPassword) => {
+    setError('');
+    if (!isSupabaseConfigured) {
+      setError('Database not connected.');
+      return false;
+    }
+    const { error: err } = await supabase.auth.updateUser({ password: newPassword });
+    if (err) {
+      setError(err.message || 'Could not update password.');
+      return false;
+    }
+    setPasswordRecovery(false);
+    if (typeof window !== 'undefined' && window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    return true;
+  };
+
+  const clearPasswordRecovery = () => setPasswordRecovery(false);
+
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout, error, loading }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        login,
+        logout,
+        error,
+        loading,
+        passwordRecovery,
+        resetEmailSent,
+        requestPasswordReset,
+        updatePassword,
+        clearPasswordRecovery,
+        setError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

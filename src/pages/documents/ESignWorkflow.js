@@ -52,7 +52,7 @@ export default function ESignWorkflow(props) {
   var [newReq, setNewReq] = React.useState({ docName: "", email: "", dueDate: "", message: "" });
   var [sent, setSent] = React.useState(false);
 
-  var canCreate = ["Master Admin", "Associate"].includes(userRole);
+  var canCreate = ["Admin", "Super Admin", "Associate"].includes(userRole);
 
   var filtered = MOCK_REQUESTS.filter(function(r) {
     return filter === "all" || r.stage === filter;

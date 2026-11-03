@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Plus, ArrowLeft, Mail, Phone, Briefcase, TrendingUp, CheckCircle, Clock } from 'lucide-react';
 import { TEAM_MEMBERS, TICKETS, STAGE } from '../../data/mockData';
 
-const ROLE_LABELS = { associate: 'Associate', hr: 'HR', sales: 'Sales', master_admin: 'Master Admin' };
+import { roleLabel } from '../../context/AuthContext';
 const ROLE_COLORS = {
   associate: 'bg-green-50 text-green-700',
   hr: 'bg-pink-50 text-pink-700',
@@ -25,13 +25,13 @@ function AssociateCard({ member, onClick }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-gray-900 text-sm">{member.firstName} {member.lastName}</div>
-          <div className="text-xs text-gray-400 mt-0.5">{member.designation || ROLE_LABELS[member.role]}</div>
+          <div className="text-xs text-gray-400 mt-0.5">{member.designation || roleLabel(member.role)}</div>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[member.status]}`}>{member.status}</span>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[member.role]}`}>{ROLE_LABELS[member.role]}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[member.role]}`}>{roleLabel(member.role)}</span>
         <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{member.department}</span>
       </div>
 
@@ -86,7 +86,7 @@ function AssociateProfile({ member, onBack }) {
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-xl font-bold text-gray-900">{member.firstName} {member.lastName}</h1>
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[member.role]}`}>{ROLE_LABELS[member.role]}</span>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[member.role]}`}>{roleLabel(member.role)}</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-green-50 text-green-700">{member.status}</span>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
