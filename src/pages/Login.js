@@ -151,6 +151,21 @@ export default function Login() {
               >
                 {loading ? 'Signing in…' : 'Sign In'}
               </button>
+              <div className="pt-2 border-t border-gray-100 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(identifier.includes('@') ? identifier.trim().toLowerCase() : '');
+                    switchMode('forgot');
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold underline underline-offset-2"
+                >
+                  Forgot password? Reset via email
+                </button>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  First time? Use reset above — we email a link to your inbox (Gmail, Outlook, etc.).
+                </p>
+              </div>
             </form>
           )}
         </div>
