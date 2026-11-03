@@ -48,7 +48,7 @@ export default function ResetPassword() {
           {done ? (
             <div className="text-center space-y-4">
               <p className="text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">
-                Your password was updated. You can continue using FinOps 360.
+                Your password has been updated successfully.
               </p>
               <button
                 type="button"

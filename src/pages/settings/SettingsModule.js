@@ -317,7 +317,7 @@ export default function SettingsModule() {
                 <div className="border-t border-gray-100 pt-5">
                   <h4 className="text-sm font-semibold text-gray-900 mb-1">Email password reset</h4>
                   <p className="text-xs text-gray-500 mb-3">
-                    Send a link to <span className="font-medium text-gray-700">{currentUser?.email}</span> (works with Gmail, Outlook, and other providers).
+                    Send a password reset link to <span className="font-medium text-gray-700">{currentUser?.email}</span>.
                   </p>
                   <button
                     type="button"

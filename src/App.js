@@ -140,7 +140,7 @@ function AppShell() {
         />
         {!isSupabaseConfigured && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-800">
-            Demo mode — Supabase not configured. Sign-in requires a live database connection.
+            Database connection is not configured. Sign-in is unavailable until environment settings are applied.
           </div>
         )}
         <main className="flex-1 overflow-auto">

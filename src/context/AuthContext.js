@@ -47,7 +47,7 @@ export function resolvePasswordResetEmail(identifier) {
   if (email.endsWith('@phone.finops360.in')) {
     return {
       error:
-        'Password reset is sent to your registered email (Gmail, Outlook, etc.). If you only sign in with mobile, use the email on your account or contact an admin.',
+        'Password reset is sent to your registered email address. If you sign in with mobile only, contact your administrator.',
     };
   }
   return { email };

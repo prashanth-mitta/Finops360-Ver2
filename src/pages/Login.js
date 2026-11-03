@@ -52,7 +52,7 @@ export default function Login() {
           {mode === 'forgot' ? (
             <form onSubmit={handleForgotSubmit} className="space-y-4">
               <p className="text-xs text-gray-500">
-                Enter the email on your account (Gmail, Outlook, company mail, etc.). We will send a reset link to that inbox.
+                Enter your registered email address. A password reset link will be sent to that inbox.
               </p>
               <div>
                 <label htmlFor="reset-email" className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -66,12 +66,12 @@ export default function Login() {
                   onChange={(e) => setResetEmail(e.target.value.trim())}
                   required
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="your@email.com"
+                  placeholder="name@company.com"
                 />
               </div>
               {resetEmailSent && (
                 <p className="text-xs text-green-700 bg-green-50 px-3 py-2 rounded-lg" role="status">
-                  If an account exists for <strong>{resetEmailSent}</strong>, check your inbox (and spam) for the reset link.
+                  If an account exists for <strong>{resetEmailSent}</strong>, check your email for the reset link.
                 </p>
               )}
               {error && (
@@ -109,7 +109,7 @@ export default function Login() {
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="90304 41804 or your@email.com"
+                  placeholder="Mobile number or email"
                 />
               </div>
               <div>
@@ -151,21 +151,6 @@ export default function Login() {
               >
                 {loading ? 'Signing in…' : 'Sign In'}
               </button>
-              <div className="pt-2 border-t border-gray-100 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResetEmail(identifier.includes('@') ? identifier.trim().toLowerCase() : '');
-                    switchMode('forgot');
-                  }}
-                  className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold underline underline-offset-2"
-                >
-                  Forgot password? Reset via email
-                </button>
-                <p className="text-[11px] text-gray-400 mt-2">
-                  First time? Use reset above — we email a link to your inbox (Gmail, Outlook, etc.).
-                </p>
-              </div>
             </form>
           )}
         </div>
